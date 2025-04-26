@@ -10,19 +10,23 @@ def download_video(video_url, output_path="downloads", audio_only=False):
     # Create output directory if it doesn't exist
     os.makedirs(output_path, exist_ok=True)
 
-    # Set the format based on the audio_only flag
-    format_option = "bestaudio/best" if audio_only else "best"
+    # Path to the cookies file (relative to the script's directory)
+    cookies_file = os.path.join(os.path.dirname(__file__), "www.youtube.com_cookies.txt")
 
     # Build the yt-dlp command
     command = [
         "yt-dlp",
-        "-f", format_option,
+        "-f", "bestaudio/best",  # Try bestaudio, fall back to best if unavailable
         "-o", f"{output_path}/%(title)s.%(ext)s",  # Output file format
-        video_url
+        video_url,
+        "--cookies", cookies_file  # Use cookies for authentication
     ]
 
     if audio_only:
-        command.extend(["--extract-audio", "--audio-format", "mp3"])
+        command.extend([
+            "--extract-audio",
+            "--audio-format", "mp3"
+        ])
 
     try:
         # Run the yt-dlp command
@@ -30,6 +34,23 @@ def download_video(video_url, output_path="downloads", audio_only=False):
         print(f"Download completed successfully: {video_url}")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred during download: {e}")
+        # Fallback: Retry with a more permissive format
+        if audio_only:
+            print("Retrying with fallback format 'best'...")
+            command = [
+                "yt-dlp",
+                "-f", "best",  # Fallback to best available format
+                "-o", f"{output_path}/%(title)s.%(ext)s",
+                video_url,
+                "--cookies", cookies_file,
+                "--extract-audio",
+                "--audio-format", "mp3"
+            ]
+            try:
+                subprocess.run(command, check=True)
+                print(f"Download completed successfully with fallback: {video_url}")
+            except subprocess.CalledProcessError as e2:
+                print(f"Fallback download failed: {e2}")
 
 def batch_download(file_path, output_path="downloads", audio_only=False):
     """Downloads multiple videos from a text file."""
