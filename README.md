@@ -1,15 +1,14 @@
 # YouTube Downloader & Foundry VTT Playlist Generator (One-Command Workflow)
 
-A streamlined Python script to download audio from YouTube as `.webm` files and generate a playlist JSON for Foundry Virtual Tabletop (Foundry VTT), all in one command, with cleaned-up file names.
+A streamlined Python script to download audio from YouTube as `.webm` files and generate a playlist JSON for Foundry Virtual Tabletop (Foundry VTT), all in one command.
 
 ## Features
 
 - Downloads audio as `.webm` files from YouTube URLs listed in `links.txt` directly to a specified folder.
-- Cleans file names by removing repetitive prefixes (e.g., "Scarlet Nexus Digital Soundtrack"), suffixes (e.g., "[EXTENDED]"), and other metadata for a polished look in Foundry VTT.
 - Automatically creates the specified folder if it doesn’t exist.
 - Generates a JSON file for Foundry VTT playlists from the downloaded `.webm` files.
 - Sets the playlist name to the folder name (e.g., "apple").
-- Uses the cleaned file name as the track name (e.g., "A freezie").
+- Uses the full YouTube video title as the track name (e.g., "Scarlet Nexus Digital Soundtrack | A freezie [EXTENDED]..webm").
 - Constructs relative paths compatible with Foundry VTT (e.g., `Music_Import/apple/...`).
 - Runs with a single command: `python downloader.py --generate "path/to/folder"`.
 
@@ -67,7 +66,7 @@ A streamlined Python script to download audio from YouTube as `.webm` files and 
   ```
 - This will:
   - Create the folder `C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\apple` if it doesn’t exist.
-  - Download `.webm` files from the URLs in `links.txt` directly to the specified folder, with cleaned file names (e.g., "A freezie.webm").
+  - Download `.webm` files from the URLs in `links.txt` directly to the specified folder, using the full YouTube video title (e.g., "Scarlet Nexus Digital Soundtrack | A freezie [EXTENDED]..webm").
   - Generate `playlist.json` in the specified folder after downloading.
 
 ### Step 3: Import the JSON into Foundry VTT
@@ -77,12 +76,11 @@ A streamlined Python script to download audio from YouTube as `.webm` files and 
 - Select **Import Data** (or open the playlist configuration and click **Bulk Import**).
 - In the File Picker, navigate to your folder (e.g., `Music_Import/apple`).
 - Select `playlist.json` and click **Import**.
-- The playlist will load with all tracks, ready for playback, with clean names (e.g., "A freezie", "Human").
+- The playlist will load with all tracks, ready for playback, with full names (e.g., "Scarlet Nexus Digital Soundtrack | A freezie [EXTENDED]..webm").
 
 ## Notes
 
 - **Cookies Requirement**: The downloader requires `www.youtube.com_cookies.txt` for authenticated downloads. Without it, some videos (e.g., age-restricted) will fail to download.
-- **File Name Cleaning**: The script removes common prefixes (e.g., "Scarlet Nexus Digital Soundtrack", "OST"), suffixes (e.g., "[EXTENDED]"), and other metadata to focus on the core track name.
 - **Foundry VTT Compatibility**: The playlist generator is designed for Foundry VTT version 12.331 (as of May 2025). It generates valid 16-character `_id` values for each track.
 - **Performance in Foundry**: Importing a large playlist (e.g., 100 tracks) may cause lag. Consider splitting into smaller playlists within Foundry VTT after importing.
 
@@ -92,8 +90,6 @@ A streamlined Python script to download audio from YouTube as `.webm` files and 
   - Ensure `yt-dlp` is installed and up to date (`pip install -U yt-dlp`).
   - Verify your `www.youtube.com_cookies.txt` file is valid and not expired.
   - Check if `links.txt` exists and contains valid YouTube URLs.
-- **File Names Still Cluttered**:
-  - The script uses regex to clean titles, but some videos may have unusual naming. Adjust the `--replace-in-metadata` patterns in the script if needed.
 - **Foundry VTT Import Fails**:
   - Ensure the `.webm` files were downloaded to the correct folder within Foundry’s data directory.
   - Verify the `path` in the JSON matches the relative path in Foundry (e.g., `Music_Import/apple/...`).
