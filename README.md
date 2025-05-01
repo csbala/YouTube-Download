@@ -1,168 +1,120 @@
-# YouTube Downloader using yt-dlp
+# YouTube Downloader & Foundry VTT Playlist Generator (Simplified)
 
-This repository contains a simple Python script that uses **yt-dlp** to download YouTube videos or audio files in the best quality available. Whether you're new to programming or an experienced developer, this script is easy to use and helps you save YouTube content effortlessly.
-
----
+A streamlined Python script to download audio from YouTube as `.webm` files and generate a playlist JSON for Foundry Virtual Tabletop (Foundry VTT), designed for a seamless workflow with minimal commands.
 
 ## Features
 
-- Download YouTube videos in the highest available quality.
-- Extract and save audio as MP3 files.
-- Specify a custom output folder for your downloads.
-- Batch download multiple YouTube videos or audios from a text file.
-- Supports flexible formatting of links (comma-separated or newline-separated).
+- **YouTube Downloader**:
 
-## Requirements
+  - Downloads audio as `.webm` files from YouTube URLs listed in `links.txt`.
+  - Requires a cookies file for authenticated downloads (e.g., age-restricted videos).
+  - Runs with a single command: `python downloader.py`.
 
-1. **Python 3.6 or higher** installed on your system.
-2. Install **yt-dlp** (a YouTube downloader tool):
-   ```bash
-   pip install yt-dlp
-   ```
-3. Install **ffmpeg** for audio extraction (required for MP3 downloads):
-   - On Windows: [Download and install ffmpeg](https://ffmpeg.org/download.html), and add it to your PATH.
-   - On Linux: Install with:
-     ```bash
-     sudo apt install ffmpeg
-     ```
-   - On macOS: Install with:
-     ```bash
-     brew install ffmpeg
-     ```
+- **Foundry VTT Playlist Generator**:
+  - Generates a JSON file for Foundry VTT playlists from a folder of `.webm` files.
+  - Sets the playlist name to the folder name (e.g., "Honkai Impact 3rd OST").
+  - Uses the full file name as the track name (e.g., "Honkai Impact 3rd OST： Ace [EXTENDED]..webm").
+  - Constructs relative paths compatible with Foundry VTT (e.g., `Music_Import/Honkai Impact 3rd OST/...`).
+  - Runs with a simple command: `python downloader.py --generate "path/to/folder"`.
 
----
+## Prerequisites
 
-## How to Use
-
-### 1. Clone the Repository
-
-Download or clone the repository to your local machine:
-
-```bash
-git clone https://github.com/your-username/yt-dlp-youtube-downloader.git
-cd yt-dlp-youtube-downloader
-```
-
-### 2. Run the Script
-
-#### **Basic Usage**
-
-To download a single YouTube video in the best quality:
-
-```bash
-python downloader.py --url <YouTube-Video-URL>
-```
-
-#### **Download as MP3**
-
-To extract only the audio and save it as an MP3 file:
-
-```bash
-python downloader.py --url <YouTube-Video-URL> --audio
-```
-
-#### **Specify Output Folder**
-
-To save the downloaded file(s) in a custom folder:
-
-```bash
-python downloader.py --url <YouTube-Video-URL> --output <folder-name>
-```
-
----
-
-## Batch Download
-
-You can download multiple videos or audios at once by providing a text file with YouTube links.
-
-### Preparing the Text File
-
-1. Create a `.txt` file (e.g., `links.txt`) with YouTube links in any of the following formats:
-
-   - Comma-separated:
-     ```
-     https://www.youtube.com/watch?v=dQw4w9WgXcQ, https://www.youtube.com/watch?v=3JZ_D3ELwOQ, https://www.youtube.com/watch?v=C0DPdy98e4c
-     ```
-   - Newline-separated:
-     ```
-     https://www.youtube.com/watch?v=dQw4w9WgXcQ
-     https://www.youtube.com/watch?v=3JZ_D3ELwOQ
-     https://www.youtube.com/watch?v=C0DPdy98e4c
-     ```
-   - Mixed formats (comma + newline):
-     ```
-     https://www.youtube.com/watch?v=dQw4w9WgXcQ,
-     https://www.youtube.com/watch?v=3JZ_D3ELwOQ,
-     https://www.youtube.com/watch?v=C0DPdy98e4c
-     ```
-
-2. Save the file in your desired location.
-
-### Running the Batch Download
-
-Use the `--batch` flag with the path to the text file:
-
-```bash
-python downloader.py --batch path/to/links.txt
-```
-
-#### Optional: Download as MP3
-
-Add the `--audio` flag for audio-only downloads:
-
-```bash
-python downloader.py --batch path/to/links.txt --audio
-```
-
----
-
-## Example Commands
-
-- Download a single video:
-
-  ```bash
-  python downloader.py --url https://www.youtube.com/watch?v=dQw4w9WgXcQ
+- **Python 3.6 or later**: Download and install from [python.org](https://www.python.org/downloads/).
+- **yt-dlp**: Install via pip:
   ```
-
-- Download a single video as MP3:
-
-  ```bash
-  python downloader.py --url https://www.youtube.com/watch?v=dQw4w9WgXcQ --audio
+  pip install yt-dlp
   ```
+- **Foundry VTT**: Ensure you have Foundry VTT installed and a world set up to import playlists.
+- **Google Chrome Cookies**: Export your YouTube cookies using a browser extension like "Get cookies.txt LOCALLY" (available for Chrome/Firefox). Save the file as `www.youtube.com_cookies.txt` in the same directory as the script.
 
-- Batch download videos from `links.txt`:
+## Installation
 
-  ```bash
-  python downloader.py --batch links.txt
+1. **Clone or Download the Project**:
+
+   - Download the project files and place them in a folder (e.g., `yt-dlp-youtube-downloader`).
+
+2. **Prepare the Cookies File**:
+
+   - Export your YouTube cookies to `www.youtube.com_cookies.txt` using a browser extension.
+   - Place the file in the same directory as `downloader.py`.
+
+3. **Create a links.txt File**:
+   - Create a `links.txt` file in the same directory as the script.
+   - Add YouTube URLs (one per line or comma-separated):
+     ```
+     https://www.youtube.com/watch?v=VIDEO_ID1
+     https://www.youtube.com/watch?v=VIDEO_ID2
+     ```
+
+## Files Overview
+
+- `downloader.py`: The main script for downloading `.webm` files and generating Foundry VTT playlists.
+- `www.youtube.com_cookies.txt`: Cookies file for YouTube downloads (must be provided by the user).
+- `links.txt`: Text file containing YouTube URLs for downloading.
+
+## Usage
+
+### Step 1: Download .webm Files from YouTube
+
+- Ensure `links.txt` and `www.youtube.com_cookies.txt` are in the same directory as `downloader.py`.
+- Run the command:
   ```
-
-- Batch download audios from `links.txt`:
-  ```bash
-  python downloader.py --batch links.txt --audio
+  python downloader.py
   ```
+- This downloads all audio from the URLs in `links.txt` as `.webm` files to a `downloads` folder.
 
----
+### Step 2: Move Files to Foundry VTT Data Folder
+
+- Move the downloaded `.webm` files to a folder in Foundry VTT’s data directory.
+- Example: `C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\Honkai Impact 3rd OST`.
+
+### Step 3: Generate a Foundry VTT Playlist JSON
+
+- Run the command with the `--generate` flag, specifying the folder path:
+  ```
+  python downloader.py --generate "path/to/folder"
+  ```
+- Example:
+  ```
+  python downloader.py --generate "C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\Honkai Impact 3rd OST"
+  ```
+- This generates `playlist.json` in the specified folder.
+
+### Step 4: Import the JSON into Foundry VTT
+
+- Open Foundry VTT and go to the **Audio Playlists** tab.
+- Right-click an existing playlist (or create a new one with **Create Playlist**).
+- Select **Import Data** (or open the playlist configuration and click **Bulk Import**).
+- In the File Picker, navigate to your folder (e.g., `Music_Import/Honkai Impact 3rd OST`).
+- Select `playlist.json` and click **Import**.
+- The playlist will load with all tracks, ready for playback.
+
+## Notes
+
+- **Cookies Requirement**: The downloader requires `www.youtube.com_cookies.txt` for authenticated downloads. Without it, some videos (e.g., age-restricted) will fail to download.
+- **Foundry VTT Compatibility**: The playlist generator is designed for Foundry VTT version 12.331 (as of May 2025). It generates valid 16-character `_id` values for each track.
+- **Performance in Foundry**: Importing a large playlist (e.g., 100 tracks) may cause lag. Consider splitting into smaller playlists within Foundry VTT after importing.
+- **File Naming**: The script uses the full file name for track names. Ensure your files are named appropriately for your campaign.
 
 ## Troubleshooting
 
-1. **Command Not Found**: Ensure `yt-dlp` is installed using:
-   ```bash
-   pip install yt-dlp
-   ```
-2. **FFmpeg Not Found**: Ensure `ffmpeg` is installed and added to your system's PATH. Check by running:
-   ```bash
-   ffmpeg -version
-   ```
-3. **Python Not Installed**: Download Python from [python.org](https://www.python.org/) and add it to your system's PATH.
-
----
-
-## Contribution
-
-Feel free to contribute by submitting issues or pull requests to enhance this project!
-
----
+- **YouTube Download Fails**:
+  - Ensure `yt-dlp` is installed and up to date (`pip install -U yt-dlp`).
+  - Verify your `www.youtube.com_cookies.txt` file is valid and not expired.
+  - Check if `links.txt` exists and contains valid YouTube URLs.
+- **Foundry VTT Import Fails**:
+  - Ensure the `.webm` files are in the correct folder within Foundry’s data directory.
+  - Verify the `path` in the JSON matches the relative path in Foundry (e.g., `Music_Import/Honkai%20Impact%203rd%20OST/...`).
+  - Check the Foundry VTT console for validation errors.
+- **Python Errors**:
+  - Ensure Python is installed and added to your PATH.
+  - Run the script from a command prompt/terminal in the correct directory.
 
 ## License
 
-This project is open-source and available under the MIT License.
+This project is provided as-is, with no warranty. Use at your own risk. Ensure you comply with YouTube’s terms of service when downloading content.
+
+## Acknowledgments
+
+- Built with `yt-dlp` for YouTube downloading.
+- Designed for Foundry Virtual Tabletop (Foundry VTT) playlist importing.

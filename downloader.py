@@ -1,85 +1,144 @@
-# yt-dlp-youtube-downloader
-# A simple Python script using yt-dlp to download YouTube videos or audio in the best quality.
-
-import argparse
 import os
+import json
+import urllib.parse
+import random
+import string
 import subprocess
+import argparse
+from datetime import datetime
 
-def download_video(video_url, output_path="downloads", audio_only=False):
-    """Downloads a video or audio from YouTube using yt-dlp."""
-    # Create output directory if it doesn't exist
-    os.makedirs(output_path, exist_ok=True)
+# --- Foundry VTT Playlist Generator with Integrated Downloader ---
 
+def generate_random_id():
+    """Generate a random 16-character alphanumeric ID."""
+    characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+    return ''.join(random.choice(characters) for _ in range(16))
+
+def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
+    """Download .webm files to the specified folder and generate a playlist JSON for Foundry VTT."""
+    # Create the folder if it doesn't exist
+    os.makedirs(folder_path, exist_ok=True)
+    
     # Path to the cookies file (relative to the script's directory)
     cookies_file = os.path.join(os.path.dirname(__file__), "www.youtube.com_cookies.txt")
 
-    # Build the yt-dlp command
-    command = [
-        "yt-dlp",
-        "-f", "bestaudio/best",  # Try bestaudio, fall back to best if unavailable
-        "-o", f"{output_path}/%(title)s.%(ext)s",  # Output file format
-        video_url,
-        "--cookies", cookies_file  # Use cookies for authentication
-    ]
-
-    if audio_only:
-        command.extend([
-            "--extract-audio",
-            "--audio-format", "mp3"
-        ])
-
-    try:
-        # Run the yt-dlp command
-        subprocess.run(command, check=True)
-        print(f"Download completed successfully: {video_url}")
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred during download: {e}")
-        # Fallback: Retry with a more permissive format
-        if audio_only:
-            print("Retrying with fallback format 'best'...")
-            command = [
-                "yt-dlp",
-                "-f", "best",  # Fallback to best available format
-                "-o", f"{output_path}/%(title)s.%(ext)s",
-                video_url,
-                "--cookies", cookies_file,
-                "--extract-audio",
-                "--audio-format", "mp3"
-            ]
-            try:
-                subprocess.run(command, check=True)
-                print(f"Download completed successfully with fallback: {video_url}")
-            except subprocess.CalledProcessError as e2:
-                print(f"Fallback download failed: {e2}")
-
-def batch_download(file_path, output_path="downloads", audio_only=False):
-    """Downloads multiple videos from a text file."""
-    if not os.path.isfile(file_path):
-        print(f"File not found: {file_path}")
+    # Check if cookies file exists
+    if not os.path.isfile(cookies_file):
+        print(f"Error: Cookies file not found at {cookies_file}. Please provide www.youtube.com_cookies.txt.")
         return
 
-    with open(file_path, "r") as file:
-        # Read links and normalize them (handle commas, newlines, and whitespace)
+    # Check if links.txt exists
+    links_file = "links.txt"
+    if not os.path.isfile(links_file):
+        print(f"Error: links.txt not found in the current directory. Please create it with YouTube URLs.")
+        return
+
+    # Read links from links.txt
+    with open(links_file, "r") as file:
         content = file.read()
         links = [link.strip() for link in content.replace("\n", ",").split(",") if link.strip()]
 
-    print(f"Starting batch download for {len(links)} links...")
+    # Download .webm files directly to the specified folder with cleaned names
+    print(f"Starting batch download for {len(links)} links to {folder_path}...")
     for link in links:
         print(f"Downloading: {link}")
-        download_video(link, output_path, audio_only)
+        # Build the yt-dlp command for .webm audio with cleaned title
+        command = [
+            "yt-dlp",
+            "-f", "bestaudio[ext=webm]",  # Download best audio in .webm format
+            "--parse-metadata", "title:%(title)s",  # Extract the title
+            "--replace-in-metadata", "title", r".*?(?: - | – )", "",  # Remove everything before " - " or " – "
+            "--replace-in-metadata", "title", r" \[.*?\]", "",  # Remove brackets like [EXTENDED]
+            "--replace-in-metadata", "title", r" \(.*?\)", "",  # Remove parentheses like (Official Audio)
+            "--replace-in-metadata", "title", r"\|.*", "",  # Remove anything after | (e.g., artist name)
+            "--replace-in-metadata", "title", r"^(?:Scarlet Nexus Digital Soundtrack|Soundtrack|OST)\s*[-–]?\s*", "",  # Remove specific prefixes
+            "-o", f"{folder_path}/%(title)s.webm",  # Output with cleaned title
+            link,
+            "--cookies", cookies_file  # Use cookies for authentication
+        ]
+
+        try:
+            subprocess.run(command, check=True)
+            print(f"Download completed successfully: {link}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error during download: {e}")
+
+    # List all .webm files in the folder
+    webm_files = [f for f in os.listdir(folder_path) if f.endswith('.webm')]
+    if not webm_files:
+        print(f"No .webm files found in {folder_path}. Playlist will be empty.")
+    
+    # Generate a list of sound entries
+    sounds = []
+    for i, filename in enumerate(webm_files):
+        # Use the file name (without .webm) as the sound name
+        sound_name = os.path.splitext(filename)[0]
+        relative_path = os.path.join("Music_Import", os.path.basename(folder_path), filename)
+        encoded_path = urllib.parse.quote(relative_path, safe='/')
+        
+        sound = {
+            "name": sound_name,
+            "path": encoded_path,
+            "channel": "music",
+            "repeat": False,
+            "fade": None,
+            "description": "",
+            "volume": 0.01,
+            "_id": generate_random_id(),
+            "playing": False,
+            "pausedTime": None,
+            "sort": i,
+            "flags": {}
+        }
+        sounds.append(sound)
+    
+    # Get current timestamp in milliseconds for _stats
+    current_time = int(datetime.now().timestamp() * 1000)
+    
+    # Create the playlist JSON structure
+    playlist = {
+        "folder": "xRZH0HFR0JSeNcZ3",
+        "name": os.path.basename(folder_path),
+        "sounds": sounds,
+        "channel": "music",
+        "mode": 0,
+        "playing": False,
+        "fade": 2000,
+        "sorting": "a",
+        "seed": 228,
+        "flags": {
+            "exportSource": {
+                "world": "one-piece-dandd-marines",
+                "system": "dnd5e",
+                "coreVersion": "12.331",
+                "systemVersion": "4.3.9"
+            }
+        },
+        "_stats": {
+            "coreVersion": "12.331",
+            "systemId": "dnd5e",
+            "systemVersion": "3.3.1",
+            "createdTime": current_time,
+            "modifiedTime": current_time,
+            "lastModifiedBy": "3AazUso5cQzr2z0e"
+        },
+        "description": ""
+    }
+    
+    # Write the JSON to a file in the same folder
+    output_path = os.path.join(folder_path, output_filename)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(playlist, f, indent=2)
+    
+    print(f"JSON file generated successfully at: {output_path}")
+
+# --- Main Execution ---
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="YouTube Downloader using yt-dlp")
-    parser.add_argument("--url", type=str, help="The URL of the YouTube video to download")
-    parser.add_argument("--output", type=str, default="downloads", help="Output folder for the downloaded file(s)")
-    parser.add_argument("--audio", action="store_true", help="Download only the audio as MP3")
-    parser.add_argument("--batch", type=str, help="Path to a text file containing YouTube links for batch download")
+    parser = argparse.ArgumentParser(description="YouTube Downloader and Foundry VTT Playlist Generator")
+    parser.add_argument("--generate", type=str, required=True, help="Path to the folder where .webm files will be downloaded and a Foundry VTT playlist JSON will be generated")
 
     args = parser.parse_args()
 
-    if args.batch:
-        batch_download(file_path=args.batch, output_path=args.output, audio_only=args.audio)
-    elif args.url:
-        download_video(video_url=args.url, output_path=args.output, audio_only=args.audio)
-    else:
-        print("You must provide either --url or --batch flag.")
+    # Generate Foundry VTT playlist JSON for the specified folder, including downloading
+    generate_foundry_playlist(args.generate)
