@@ -1,21 +1,17 @@
-# YouTube Downloader & Foundry VTT Playlist Generator (Simplified)
+# YouTube Downloader & Foundry VTT Playlist Generator (One-Command Workflow)
 
-A streamlined Python script to download audio from YouTube as `.webm` files and generate a playlist JSON for Foundry Virtual Tabletop (Foundry VTT), designed for a seamless workflow with minimal commands.
+A streamlined Python script to download audio from YouTube as `.webm` files and generate a playlist JSON for Foundry Virtual Tabletop (Foundry VTT), all in one command, with cleaned-up file names.
 
 ## Features
 
-- **YouTube Downloader**:
-
-  - Downloads audio as `.webm` files from YouTube URLs listed in `links.txt`.
-  - Requires a cookies file for authenticated downloads (e.g., age-restricted videos).
-  - Runs with a single command: `python downloader.py`.
-
-- **Foundry VTT Playlist Generator**:
-  - Generates a JSON file for Foundry VTT playlists from a folder of `.webm` files.
-  - Sets the playlist name to the folder name (e.g., "Honkai Impact 3rd OST").
-  - Uses the full file name as the track name (e.g., "Honkai Impact 3rd OST： Ace [EXTENDED]..webm").
-  - Constructs relative paths compatible with Foundry VTT (e.g., `Music_Import/Honkai Impact 3rd OST/...`).
-  - Runs with a simple command: `python downloader.py --generate "path/to/folder"`.
+- Downloads audio as `.webm` files from YouTube URLs listed in `links.txt` directly to a specified folder.
+- Cleans file names by removing repetitive prefixes (e.g., "Scarlet Nexus Digital Soundtrack"), suffixes (e.g., "[EXTENDED]"), and other metadata for a polished look in Foundry VTT.
+- Automatically creates the specified folder if it doesn’t exist.
+- Generates a JSON file for Foundry VTT playlists from the downloaded `.webm` files.
+- Sets the playlist name to the folder name (e.g., "apple").
+- Uses the cleaned file name as the track name (e.g., "A freezie").
+- Constructs relative paths compatible with Foundry VTT (e.g., `Music_Import/apple/...`).
+- Runs with a single command: `python downloader.py --generate "path/to/folder"`.
 
 ## Prerequisites
 
@@ -26,12 +22,13 @@ A streamlined Python script to download audio from YouTube as `.webm` files and 
   ```
 - **Foundry VTT**: Ensure you have Foundry VTT installed and a world set up to import playlists.
 - **Google Chrome Cookies**: Export your YouTube cookies using a browser extension like "Get cookies.txt LOCALLY" (available for Chrome/Firefox). Save the file as `www.youtube.com_cookies.txt` in the same directory as the script.
+- **links.txt**: A text file containing YouTube URLs (one per line or comma-separated) in the same directory as the script.
 
 ## Installation
 
 1. **Clone or Download the Project**:
 
-   - Download the project files and place them in a folder (e.g., `yt-dlp-youtube-downloader`).
+   - Download the project files and place them in a folder (e.g., `C:\Users\Hp Victus\Documents\GitHub\YouTube-Download`).
 
 2. **Prepare the Cookies File**:
 
@@ -54,47 +51,40 @@ A streamlined Python script to download audio from YouTube as `.webm` files and 
 
 ## Usage
 
-### Step 1: Download .webm Files from YouTube
+### Step 1: Prepare Prerequisites
 
 - Ensure `links.txt` and `www.youtube.com_cookies.txt` are in the same directory as `downloader.py`.
-- Run the command:
-  ```
-  python downloader.py
-  ```
-- This downloads all audio from the URLs in `links.txt` as `.webm` files to a `downloads` folder.
 
-### Step 2: Move Files to Foundry VTT Data Folder
+### Step 2: Download and Generate Playlist JSON
 
-- Move the downloaded `.webm` files to a folder in Foundry VTT’s data directory.
-- Example: `C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\Honkai Impact 3rd OST`.
-
-### Step 3: Generate a Foundry VTT Playlist JSON
-
-- Run the command with the `--generate` flag, specifying the folder path:
+- Run the command with the `--generate` flag, specifying the folder path in Foundry VTT’s data directory:
   ```
   python downloader.py --generate "path/to/folder"
   ```
 - Example:
   ```
-  python downloader.py --generate "C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\Honkai Impact 3rd OST"
+  python downloader.py --generate "C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\apple"
   ```
-- This generates `playlist.json` in the specified folder.
+- This will:
+  - Create the folder `C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\apple` if it doesn’t exist.
+  - Download `.webm` files from the URLs in `links.txt` directly to the specified folder, with cleaned file names (e.g., "A freezie.webm").
+  - Generate `playlist.json` in the specified folder after downloading.
 
-### Step 4: Import the JSON into Foundry VTT
+### Step 3: Import the JSON into Foundry VTT
 
 - Open Foundry VTT and go to the **Audio Playlists** tab.
 - Right-click an existing playlist (or create a new one with **Create Playlist**).
 - Select **Import Data** (or open the playlist configuration and click **Bulk Import**).
-- In the File Picker, navigate to your folder (e.g., `Music_Import/Honkai Impact 3rd OST`).
+- In the File Picker, navigate to your folder (e.g., `Music_Import/apple`).
 - Select `playlist.json` and click **Import**.
-- The playlist will load with all tracks, ready for playback.
+- The playlist will load with all tracks, ready for playback, with clean names (e.g., "A freezie", "Human").
 
 ## Notes
 
 - **Cookies Requirement**: The downloader requires `www.youtube.com_cookies.txt` for authenticated downloads. Without it, some videos (e.g., age-restricted) will fail to download.
+- **File Name Cleaning**: The script removes common prefixes (e.g., "Scarlet Nexus Digital Soundtrack", "OST"), suffixes (e.g., "[EXTENDED]"), and other metadata to focus on the core track name.
 - **Foundry VTT Compatibility**: The playlist generator is designed for Foundry VTT version 12.331 (as of May 2025). It generates valid 16-character `_id` values for each track.
 - **Performance in Foundry**: Importing a large playlist (e.g., 100 tracks) may cause lag. Consider splitting into smaller playlists within Foundry VTT after importing.
-- **File Naming**: The script uses the full file name for track names. Ensure your files are named appropriately for your campaign.
 
 ## Troubleshooting
 
@@ -102,10 +92,14 @@ A streamlined Python script to download audio from YouTube as `.webm` files and 
   - Ensure `yt-dlp` is installed and up to date (`pip install -U yt-dlp`).
   - Verify your `www.youtube.com_cookies.txt` file is valid and not expired.
   - Check if `links.txt` exists and contains valid YouTube URLs.
+- **File Names Still Cluttered**:
+  - The script uses regex to clean titles, but some videos may have unusual naming. Adjust the `--replace-in-metadata` patterns in the script if needed.
 - **Foundry VTT Import Fails**:
-  - Ensure the `.webm` files are in the correct folder within Foundry’s data directory.
-  - Verify the `path` in the JSON matches the relative path in Foundry (e.g., `Music_Import/Honkai%20Impact%203rd%20OST/...`).
+  - Ensure the `.webm` files were downloaded to the correct folder within Foundry’s data directory.
+  - Verify the `path` in the JSON matches the relative path in Foundry (e.g., `Music_Import/apple/...`).
   - Check the Foundry VTT console for validation errors.
+- **Folder Creation Issues**:
+  - Check for permission errors when creating the folder in the Foundry data directory. Run the command prompt as Administrator if needed.
 - **Python Errors**:
   - Ensure Python is installed and added to your PATH.
   - Run the script from a command prompt/terminal in the correct directory.

@@ -38,21 +38,15 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
         content = file.read()
         links = [link.strip() for link in content.replace("\n", ",").split(",") if link.strip()]
 
-    # Download .webm files directly to the specified folder with cleaned names
+    # Download .webm files directly to the specified folder
     print(f"Starting batch download for {len(links)} links to {folder_path}...")
     for link in links:
         print(f"Downloading: {link}")
-        # Build the yt-dlp command for .webm audio with cleaned title
+        # Build the yt-dlp command for .webm audio
         command = [
             "yt-dlp",
             "-f", "bestaudio[ext=webm]",  # Download best audio in .webm format
-            "--parse-metadata", "title:%(title)s",  # Extract the title
-            "--replace-in-metadata", "title", r".*?(?: - | – )", "",  # Remove everything before " - " or " – "
-            "--replace-in-metadata", "title", r" \[.*?\]", "",  # Remove brackets like [EXTENDED]
-            "--replace-in-metadata", "title", r" \(.*?\)", "",  # Remove parentheses like (Official Audio)
-            "--replace-in-metadata", "title", r"\|.*", "",  # Remove anything after | (e.g., artist name)
-            "--replace-in-metadata", "title", r"^(?:Scarlet Nexus Digital Soundtrack|Soundtrack|OST)\s*[-–]?\s*", "",  # Remove specific prefixes
-            "-o", f"{folder_path}/%(title)s.webm",  # Output with cleaned title
+            "-o", f"{folder_path}/%(title)s [EXTENDED]..%(ext)s",  # Output with full title
             link,
             "--cookies", cookies_file  # Use cookies for authentication
         ]
@@ -71,8 +65,7 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
     # Generate a list of sound entries
     sounds = []
     for i, filename in enumerate(webm_files):
-        # Use the file name (without .webm) as the sound name
-        sound_name = os.path.splitext(filename)[0]
+        sound_name = filename
         relative_path = os.path.join("Music_Import", os.path.basename(folder_path), filename)
         encoded_path = urllib.parse.quote(relative_path, safe='/')
         
