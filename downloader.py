@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import urllib.parse
 import random
@@ -20,15 +21,15 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
     os.makedirs(folder_path, exist_ok=True)
     
     # Path to the cookies file (relative to the script's directory)
-    cookies_file = os.path.join(os.path.dirname(__file__), "www.youtube.com_cookies.txt")
+    cookies_file = os.path.join(os.path.dirname(__file__), "cookies.txt")
 
-    # Check if cookies file exists
-    if not os.path.isfile(cookies_file):
-        print(f"Error: Cookies file not found at {cookies_file}. Please provide www.youtube.com_cookies.txt.")
-        return
+    # Check if cookies file exists (optional)
+    use_cookies = os.path.isfile(cookies_file)
+    if not use_cookies:
+        print(f"Warning: Cookies file not found at {cookies_file}. Proceeding without cookies (may fail for age-restricted videos).")
 
     # Check if links.txt exists
-    links_file = "links.txt"
+    links_file = os.path.join(os.path.dirname(__file__), "links.txt")
     if not os.path.isfile(links_file):
         print(f"Error: links.txt not found in the current directory. Please create it with YouTube URLs.")
         return
@@ -44,12 +45,16 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
         print(f"Downloading: {link}")
         # Build the yt-dlp command for .webm audio
         command = [
-            "yt-dlp",
-            "-f", "bestaudio[ext=webm]",  # Download best audio in .webm format
-            "-o", f"{folder_path}/%(title)s [EXTENDED]..%(ext)s",  # Output with full title
+            sys.executable, "-m", "yt_dlp",
+            "--js-runtimes", r"node:C:\Program Files\nodejs\node.exe",  # Use Node.js as JS runtime
+            "--remote-components", "ejs:github",  # Use latest challenge solver from GitHub
+            "--no-playlist",  # Never download a whole playlist when given a single video URL
+            "-f", "bestaudio[ext=webm]/bestaudio",  # Best webm audio, fallback to best audio
+            "-o", f"{folder_path}/%(title)s [EXTENDED].%(ext)s",  # Output with full title
             link,
-            "--cookies", cookies_file  # Use cookies for authentication
         ]
+        if use_cookies:
+            command += ["--cookies", cookies_file]
 
         try:
             subprocess.run(command, check=True)
