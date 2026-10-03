@@ -6,6 +6,8 @@ import random
 import string
 import subprocess
 import argparse
+import shutil
+import glob
 from datetime import datetime
 
 # --- Foundry VTT Playlist Generator with Integrated Downloader ---
@@ -15,8 +17,18 @@ def generate_random_id():
     characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
     return ''.join(random.choice(characters) for _ in range(16))
 
-def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
-    """Download .webm files to the specified folder and generate a playlist JSON for Foundry VTT."""
+def find_ffmpeg():
+    """Return the folder containing ffmpeg.exe, or None. Needed for mp3 conversion."""
+    found = shutil.which("ffmpeg")
+    if found:
+        return os.path.dirname(found)
+    # winget installs aren't on PATH until a new shell, so look where winget puts it
+    local = os.environ.get("LOCALAPPDATA", "")
+    matches = glob.glob(os.path.join(local, "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg*", "*", "bin", "ffmpeg.exe"))
+    return os.path.dirname(matches[0]) if matches else None
+
+def generate_foundry_playlist(folder_path, output_filename="playlist.json", audio_format="webm"):
+    """Download audio files (.webm, or .mp3 for Roll20) to the specified folder and generate a playlist JSON for Foundry VTT."""
     # Create the folder if it doesn't exist
     os.makedirs(folder_path, exist_ok=True)
     
@@ -39,20 +51,35 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
         content = file.read()
         links = [link.strip() for link in content.replace("\n", ",").split(",") if link.strip()]
 
-    # Download .webm files directly to the specified folder
-    print(f"Starting batch download for {len(links)} links to {folder_path}...")
+    # mp3 needs ffmpeg to convert the downloaded audio
+    ffmpeg_dir = None
+    if audio_format == "mp3":
+        ffmpeg_dir = find_ffmpeg()
+        if not ffmpeg_dir:
+            print("Error: ffmpeg is required for mp3 but was not found. Install it with: winget install -e --id Gyan.FFmpeg")
+            return
+
+    # Download audio files directly to the specified folder
+    print(f"Starting batch download for {len(links)} links to {folder_path} as .{audio_format}...")
     for link in links:
         print(f"Downloading: {link}")
-        # Build the yt-dlp command for .webm audio
         command = [
             sys.executable, "-m", "yt_dlp",
             "--js-runtimes", r"node:C:\Program Files\nodejs\node.exe",  # Use Node.js as JS runtime
             "--remote-components", "ejs:github",  # Use latest challenge solver from GitHub
             "--no-playlist",  # Never download a whole playlist when given a single video URL
-            "-f", "bestaudio[ext=webm]/bestaudio",  # Best webm audio, fallback to best audio
             "-o", f"{folder_path}/%(title)s [EXTENDED].%(ext)s",  # Output with full title
-            link,
         ]
+        if audio_format == "mp3":
+            # Roll20's jukebox only accepts mp3
+            command += [
+                "-f", "bestaudio",
+                "-x", "--audio-format", "mp3", "--audio-quality", "192K",
+                "--ffmpeg-location", ffmpeg_dir,
+            ]
+        else:
+            command += ["-f", "bestaudio[ext=webm]/bestaudio"]  # Best webm audio, fallback to best audio
+        command.append(link)
         if use_cookies:
             command += ["--cookies", cookies_file]
 
@@ -62,16 +89,17 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
         except subprocess.CalledProcessError as e:
             print(f"Error during download: {e}")
 
-    # List all .webm files in the folder
-    webm_files = [f for f in os.listdir(folder_path) if f.endswith('.webm')]
-    if not webm_files:
-        print(f"No .webm files found in {folder_path}. Playlist will be empty.")
-    
+    # List all audio files of the chosen format in the folder
+    audio_files = [f for f in os.listdir(folder_path) if f.endswith(f'.{audio_format}')]
+    if not audio_files:
+        print(f"No .{audio_format} files found in {folder_path}. Playlist will be empty.")
+
     # Generate a list of sound entries
     sounds = []
-    for i, filename in enumerate(webm_files):
+    for i, filename in enumerate(audio_files):
         sound_name = filename
-        relative_path = os.path.join("Music_Import", os.path.basename(folder_path), filename)
+        # Foundry paths always use forward slashes, even on Windows
+        relative_path = "/".join(["Music_Import", os.path.basename(os.path.normpath(folder_path)), filename])
         encoded_path = urllib.parse.quote(relative_path, safe='/')
         
         sound = {
@@ -134,9 +162,10 @@ def generate_foundry_playlist(folder_path, output_filename="playlist.json"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YouTube Downloader and Foundry VTT Playlist Generator")
-    parser.add_argument("--generate", type=str, required=True, help="Path to the folder where .webm files will be downloaded and a Foundry VTT playlist JSON will be generated")
+    parser.add_argument("--generate", type=str, required=True, help="Path to the folder where audio files will be downloaded and a Foundry VTT playlist JSON will be generated")
+    parser.add_argument("--format", choices=["webm", "mp3"], default="webm", help="Audio format: webm (default, Foundry VTT) or mp3 (Roll20 and most other tools; needs ffmpeg)")
 
     args = parser.parse_args()
 
     # Generate Foundry VTT playlist JSON for the specified folder, including downloading
-    generate_foundry_playlist(args.generate)
+    generate_foundry_playlist(args.generate, audio_format=args.format)
