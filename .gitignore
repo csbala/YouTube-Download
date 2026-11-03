@@ -1,4 +1,13 @@
 __pycache__/
 downloads/
+# Your YouTube login: never commit these
 www.youtube.com_cookies.txt
 cookies.txt
+# Personal link list (see links.example.txt)
+links.txt
+.download-archive.txt
+# Media and stray images
+*.jpg
+*.png
+*.webm
+*.mp3

@@ -1,0 +1,4 @@
+# One YouTube link per line (or comma-separated). Lines starting with # are ignored.
+# Copy this file to links.txt, which git ignores.
+https://www.youtube.com/watch?v=VIDEO_ID1
+https://www.youtube.com/watch?v=VIDEO_ID2

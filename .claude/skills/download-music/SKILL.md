@@ -26,7 +26,7 @@ All scripts live in `.claude/skills/download-music/scripts/` and run with PowerS
 - Links can be several at once (space, comma or newline separated). Pass them all in one run.
 - **Format:** default to **mp3**. Roll20's jukebox only accepts mp3, and mp3 plays everywhere, Foundry VTT included. Use `webm` only when the user asks for it or says the files are only for Foundry. A webm upload to Roll20 fails with "You can't upload files of this type".
 - Default destination is `%USERPROFILE%\Downloads\YouTube-Music`. Use whatever folder the user names instead. You don't need to ask if they didn't say. Just tell them where it's going.
-- If they want a whole playlist: `downloader.py` passes `--no-playlist`, so a playlist link only grabs the one video it points at. Say so up front, and offer to take the individual video links instead.
+- If they want a whole playlist: by default a playlist link only grabs the one video it points at. `download.ps1` doesn't expose it, but `python downloader.py download "<folder>" "<playlist link>" --allow-playlists --format mp3` grabs the lot. Say how many tracks that is before you start if it's big.
 
 ### 2. Preflight
 
@@ -50,17 +50,15 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/download-music/scripts/d
 
 Give it a timeout of at least 5 minutes, since long tracks take a while. The script:
 
-- puts the links into `links.txt`, runs `python downloader.py --generate <folder>`, then restores the user's original `links.txt` exactly as it was;
-- prints yt-dlp's output, then a `===== SUMMARY =====` block with `NEW FILE`, `ALREADY HAD` and `ERROR` lines;
+- runs `python downloader.py download <folder> <links...> --format <format>` (the user's `links.txt` is never touched);
+- prints yt-dlp's output and downloader.py's own `Summary:` / `FAILED:` lines, then a `===== SUMMARY =====` block with `NEW FILE`, `ALREADY HAD` and `ERROR` lines;
 - exits 0 when every link produced a file, 1 when something failed, and 2 when it couldn't start.
-
-Note that `downloader.py` always reports success even when yt-dlp fails, so trust the summary block, not the script's own "completed successfully" line.
 
 ### 4. Report back
 
 Base the report on the summary block:
 
-- **Success:** give the file name(s), the size and the folder. For mp3, remind the user they can drag the file straight into Roll20's jukebox. Mention that `downloader.py` also wrote a `playlist.json` (a Foundry VTT playlist) into that folder. Example: "Alright, we're in business! Got **Song Title [EXTENDED].webm** (4.2 MB) sittin' in `Downloads\YouTube-Music`. There's a playlist.json in there too, for Foundry."
+- **Success:** give the file name(s), the size and the folder. For mp3, remind the user they can drag the file straight into Roll20's jukebox. For webm, mention that `downloader.py` also wrote a `playlist.json` (a Foundry VTT playlist of every webm in that folder). Example: "Alright, we're in business! Got **Song Title.mp3** (4.2 MB) sittin' in `Downloads\YouTube-Music`. Drag it into Roll20's jukebox and you're set."
 - **Already had it:** say it was already there, so nothing new was downloaded.
 - **Failure:** say which link failed and why, in plain words, then fix it or offer to (see the next section). Never just paste the raw error.
 
@@ -75,7 +73,7 @@ Match the yt-dlp `ERROR:` text and help out. Retry once by yourself when the fix
 | `no such option: --js-runtimes` or `--remote-components` | yt-dlp is too old for this repo's script | Upgrade yt-dlp as above. |
 | `Video unavailable`, `Private video`, `This video has been removed` | The video itself is the problem | Nothing to fix locally. Tell the user and ask for another link. |
 | `not available in your country` | Region lock | Tell the user. Nothing to fix locally. |
-| `node` / `JavaScript runtime` errors | Node.js missing or broken at `C:\Program Files\nodejs\node.exe` | Offer `winget install -e --id OpenJS.NodeJS.LTS`. |
+| `node` / `JavaScript runtime` errors | Node.js missing or broken (downloader.py looks on PATH, then in `C:\Program Files\nodejs`) | Offer `winget install -e --id OpenJS.NodeJS.LTS`. |
 | `ffmpeg is required for mp3` / `ffmpeg not found` / `Postprocessing` errors | ffmpeg is missing, so the mp3 conversion can't run | Offer `winget install -e --id Gyan.FFmpeg`. downloader.py finds it even before the shell restarts. |
 | Roll20 says "You can't upload files of this type" | The file is webm, not mp3 | Download it again with `-Format mp3`. |
 | `[Errno 13]` / `Permission denied` | Folder is locked, or a file is open in a player | Ask the user to close the player or pick another folder. |

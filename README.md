@@ -1,110 +1,90 @@
-# YouTube Downloader & Foundry VTT Playlist Generator (One-Command Workflow)
+# YouTube Audio Downloader & Foundry VTT Playlist Generator
 
-A streamlined Python script to download audio from YouTube as `.webm` files and generate a playlist JSON for Foundry Virtual Tabletop (Foundry VTT), all in one command.
+Downloads audio from YouTube links and, for Foundry Virtual Tabletop, writes a `playlist.json` you can import straight into the Audio Playlists tab.
 
-## Features
+- **webm** (default): for Foundry VTT. Also writes `playlist.json`.
+- **mp3**: for Roll20's jukebox (which only accepts mp3) and most other tools. Needs ffmpeg.
 
-- Downloads audio as `.webm` files from YouTube URLs listed in `links.txt` directly to a specified folder.
-- Automatically creates the specified folder if it doesn’t exist.
-- Generates a JSON file for Foundry VTT playlists from the downloaded `.webm` files.
-- Sets the playlist name to the folder name (e.g., "apple").
-- Uses the full YouTube video title as the track name (e.g., "Scarlet Nexus Digital Soundtrack | A freezie [EXTENDED]..webm").
-- Constructs relative paths compatible with Foundry VTT (e.g., `Music_Import/apple/...`).
-- Runs with a single command: `python downloader.py --generate "path/to/folder"`.
+## Requirements
 
-## Prerequisites
-
-- **Python 3.6 or later**: Download and install from [python.org](https://www.python.org/downloads/).
-- **yt-dlp**: Install via pip:
-  ```
-  pip install yt-dlp
-  ```
-- **Foundry VTT**: Ensure you have Foundry VTT installed and a world set up to import playlists.
-- **Google Chrome Cookies**: Export your YouTube cookies using a browser extension like "Get cookies.txt LOCALLY" (available for Chrome/Firefox). Save the file as `www.youtube.com_cookies.txt` in the same directory as the script.
-- **links.txt**: A text file containing YouTube URLs (one per line or comma-separated) in the same directory as the script.
-
-## Installation
-
-1. **Clone or Download the Project**:
-
-   - Download the project files and place them in a folder (e.g., `C:\Users\Hp Victus\Documents\GitHub\YouTube-Download`).
-
-2. **Prepare the Cookies File**:
-
-   - Export your YouTube cookies to `www.youtube.com_cookies.txt` using a browser extension.
-   - Place the file in the same directory as `downloader.py`.
-
-3. **Create a links.txt File**:
-   - Create a `links.txt` file in the same directory as the script.
-   - Add YouTube URLs (one per line or comma-separated):
-     ```
-     https://www.youtube.com/watch?v=VIDEO_ID1
-     https://www.youtube.com/watch?v=VIDEO_ID2
-     ```
-
-## Files Overview
-
-- `downloader.py`: The main script for downloading `.webm` files and generating Foundry VTT playlists.
-- `www.youtube.com_cookies.txt`: Cookies file for YouTube downloads (must be provided by the user).
-- `links.txt`: Text file containing YouTube URLs for downloading.
+- **Python 3.9 or later**
+- **yt-dlp** 2025.11.12 or newer: `pip install -r requirements.txt`
+- **Node.js**: yt-dlp uses it to solve YouTube's JavaScript challenge. `winget install -e --id OpenJS.NodeJS.LTS`
+- **ffmpeg** (mp3 only): `winget install -e --id Gyan.FFmpeg`. The script finds a winget install even before you open a new terminal.
+- **cookies.txt** (optional): needed for age-restricted videos and "confirm you're not a bot" blocks. Export your YouTube cookies with a browser extension such as "Get cookies.txt LOCALLY" and save the file as `cookies.txt` next to `downloader.py`. Git ignores it. **Never commit it**: it's your Google login.
 
 ## Usage
 
-### Step 1: Prepare Prerequisites
+### Download
 
-- Ensure `links.txt` and `www.youtube.com_cookies.txt` are in the same directory as `downloader.py`.
+```
+python downloader.py download "<folder>" [links...] [options]
+```
 
-### Step 2: Download and Generate Playlist JSON
+Pass links as arguments, or leave them out to read `links.txt` (one link per line or comma-separated; lines starting with `#` are ignored). Copy `links.example.txt` to get started. Git ignores `links.txt`.
 
-- Run the command with the `--generate` flag, specifying the folder path in Foundry VTT’s data directory:
-  ```
-  python downloader.py --generate "path/to/folder"
-  ```
-- Example:
-  ```
-  python downloader.py --generate "C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\apple"
-  ```
-- This will:
-  - Create the folder `C:\Users\Hp Victus\AppData\Local\FoundryVTT\Data\Music_Import\apple` if it doesn’t exist.
-  - Download `.webm` files from the URLs in `links.txt` directly to the specified folder, using the full YouTube video title (e.g., "Scarlet Nexus Digital Soundtrack | A freezie [EXTENDED]..webm").
-  - Generate `playlist.json` in the specified folder after downloading.
+```
+# Foundry: download into the Data folder and write playlist.json
+python downloader.py download "%LOCALAPPDATA%\FoundryVTT\Data\Music_Import\tavern" https://youtu.be/VIDEO_ID
 
-### Step 3: Import the JSON into Foundry VTT
+# Roll20: mp3, links from links.txt
+python downloader.py download "%USERPROFILE%\Downloads\YouTube-Music" --format mp3
+```
 
-- Open Foundry VTT and go to the **Audio Playlists** tab.
-- Right-click an existing playlist (or create a new one with **Create Playlist**).
-- Select **Import Data** (or open the playlist configuration and click **Bulk Import**).
-- In the File Picker, navigate to your folder (e.g., `Music_Import/apple`).
-- Select `playlist.json` and click **Import**.
-- The playlist will load with all tracks, ready for playback, with full names (e.g., "Scarlet Nexus Digital Soundtrack | A freezie [EXTENDED]..webm").
+| Option | What it does |
+|---|---|
+| `--format webm\|mp3` | Audio format (default `webm`) |
+| `--links FILE` | Read links from another file |
+| `--allow-playlists` | Download whole YouTube playlists. By default only the linked video is downloaded, even if the link is part of a playlist |
+| `--archive` | Remember downloaded videos (in `.download-archive.txt` in the folder) and skip them next time |
+| `--suffix TEXT` | Add text after each title, e.g. `--suffix " [EXTENDED]"` |
+| `--playlist-json` / `--no-playlist-json` | Force `playlist.json` on or off (default: on for webm, off for mp3) |
 
-## Notes
+The script exits with code 1 and lists the `FAILED:` links if any download fails.
 
-- **Cookies Requirement**: The downloader requires `www.youtube.com_cookies.txt` for authenticated downloads. Without it, some videos (e.g., age-restricted) will fail to download.
-- **Foundry VTT Compatibility**: The playlist generator is designed for Foundry VTT version 12.331 (as of May 2025). It generates valid 16-character `_id` values for each track.
-- **Performance in Foundry**: Importing a large playlist (e.g., 100 tracks) may cause lag. Consider splitting into smaller playlists within Foundry VTT after importing.
+### Rebuild the playlist only
+
+```
+python downloader.py playlist "<folder>" [--format webm|mp3]
+```
+
+Writes `playlist.json` from the audio files already in the folder, without downloading anything.
+
+### Playlist options (both commands)
+
+| Option | What it does |
+|---|---|
+| `--foundry-root DIR` | Foundry's `Data` folder. By default the script uses the nearest enclosing folder named `Data`, so track paths come out like `Music_Import/tavern/Song.webm` |
+| `--foundry-folder ID` | ID of a sidebar folder to put the playlist in (default: none) |
+| `--volume N` | Track volume from 0 to 1 (default 0.5) |
+
+The playlist is named after the folder and includes **every** file of the chosen format in it, including files from earlier runs. Track IDs are derived from the file path, so they stay the same when you rebuild the playlist and import it again.
+
+The old form `python downloader.py --generate "<folder>"` still works.
+
+## Import into Foundry VTT
+
+1. Download into a folder inside Foundry's `Data` directory.
+2. In Foundry, open **Audio Playlists**, create a playlist, right-click it and choose **Import Data**.
+3. Pick the `playlist.json` from that folder.
+
+Tested against Foundry VTT 12.331. Importing very large playlists (100+ tracks) can lag, so split them into several folders if needed.
 
 ## Troubleshooting
 
-- **YouTube Download Fails**:
-  - Ensure `yt-dlp` is installed and up to date (`pip install -U yt-dlp`).
-  - Verify your `www.youtube.com_cookies.txt` file is valid and not expired.
-  - Check if `links.txt` exists and contains valid YouTube URLs.
-- **Foundry VTT Import Fails**:
-  - Ensure the `.webm` files were downloaded to the correct folder within Foundry’s data directory.
-  - Verify the `path` in the JSON matches the relative path in Foundry (e.g., `Music_Import/apple/...`).
-  - Check the Foundry VTT console for validation errors.
-- **Folder Creation Issues**:
-  - Check for permission errors when creating the folder in the Foundry data directory. Run the command prompt as Administrator if needed.
-- **Python Errors**:
-  - Ensure Python is installed and added to your PATH.
-  - Run the script from a command prompt/terminal in the correct directory.
+- **Download fails** (403, "Unable to extract", "nsig"): update yt-dlp with `pip install -U yt-dlp`.
+- **"Sign in to confirm you're not a bot" / age restriction**: export fresh cookies into `cookies.txt`.
+- **ffmpeg not found**: install it (see above) or use `--format webm`.
+- **Foundry can't find the tracks**: make sure the folder is inside Foundry's `Data` directory, or pass `--foundry-root`.
+
+## Tests
+
+```
+python -m unittest discover -s tests
+```
 
 ## License
 
-This project is provided as-is, with no warranty. Use at your own risk. Ensure you comply with YouTube’s terms of service when downloading content.
+Provided as-is, with no warranty. Follow YouTube's Terms of Service, and only download content you have the right to use.
 
-## Acknowledgments
-
-- Built with `yt-dlp` for YouTube downloading.
-- Designed for Foundry Virtual Tabletop (Foundry VTT) playlist importing.
+Built with [yt-dlp](https://github.com/yt-dlp/yt-dlp).

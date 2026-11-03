@@ -1,6 +1,4 @@
 # Downloads one or more links by running the repo's downloader.py.
-# downloader.py only reads links.txt, so this temporarily swaps in the given links and
-# restores the user's original links.txt byte-for-byte afterwards.
 #
 # Usage: download.ps1 -Url <link>[,<link>...] [-Folder <path>] [-Format mp3|webm]
 # mp3 is the default because Roll20 only accepts mp3; webm is the repo's original Foundry VTT format.
@@ -34,32 +32,26 @@ New-Item -ItemType Directory -Force -Path $Folder | Out-Null
 $Folder = (Resolve-Path $Folder).Path
 $before = @(Get-ChildItem -LiteralPath $Folder -File | ForEach-Object { $_.Name })
 
-$linksFile = Join-Path $RepoRoot 'links.txt'
-$hadLinks = Test-Path $linksFile
-if ($hadLinks) { $original = [IO.File]::ReadAllBytes($linksFile) }
-
 $env:PYTHONIOENCODING = 'utf-8'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 
 $log = @()
 try {
-    [IO.File]::WriteAllText($linksFile, ($Url -join "`n") + "`n")
     Push-Location $RepoRoot
-    & $py downloader.py --generate $Folder --format $Format 2>&1 | ForEach-Object {
+    & $py downloader.py download $Folder @Url --format $Format 2>&1 | ForEach-Object {
         $line = "$_"
         $log += $line
         Write-Output $line
     }
 } finally {
     Pop-Location
-    if ($hadLinks) { [IO.File]::WriteAllBytes($linksFile, $original) } else { Remove-Item $linksFile -ErrorAction SilentlyContinue }
 }
 
 $new = @(Get-ChildItem -LiteralPath $Folder -File |
          Where-Object { $before -notcontains $_.Name -and $_.Name -ne 'playlist.json' -and $_.Extension -notin '.part', '.ytdl' })
 # Only count the target format: for mp3, yt-dlp also reports reusing an existing .webm as its conversion source.
 $already = @($log | Where-Object { $_ -match "\.$Format has already been downloaded" })
-$errors = @($log | Where-Object { $_ -match '^ERROR:|^Error:|Error during download' })
+$errors = @($log | Where-Object { $_ -match '^ERROR:|^Error:' })
 
 Write-Output ''
 Write-Output '===== SUMMARY ====='
@@ -68,7 +60,7 @@ foreach ($f in $new) { Write-Output ("NEW FILE: {0} ({1:N1} MB)" -f $f.Name, ($f
 foreach ($a in $already) { Write-Output "ALREADY HAD: $a" }
 foreach ($e in $errors) { Write-Output "ERROR: $e" }
 if ($new | Where-Object { $_.Extension -ne ".$Format" }) {
-    Write-Output "NOTE: some files aren't .$Format, so they aren't listed in playlist.json."
+    Write-Output "NOTE: some files aren't .$Format (a conversion may have failed)."
 }
 
 if ($errors.Count -gt 0 -or ($new.Count + $already.Count) -lt $Url.Count) { exit 1 }

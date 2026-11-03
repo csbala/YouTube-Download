@@ -31,12 +31,14 @@ if ($py) {
     }
 }
 
-# Node.js, at the exact path downloader.py hardcodes
-$node = 'C:\Program Files\nodejs\node.exe'
-if (Test-Path $node) {
+# Node.js, found the same way as downloader.py's find_node(): PATH first, then the default install folder
+$node = (Get-Command node -ErrorAction SilentlyContinue).Source
+$defaultNode = 'C:\Program Files\nodejs\node.exe'
+if (-not $node -and (Test-Path $defaultNode)) { $node = $defaultNode }
+if ($node) {
     Write-Output "[OK] Node.js: $((& $node --version 2>$null) -join '') at $node"
 } else {
-    Write-Output "[MISSING] Node.js not found at $node (downloader.py uses it to solve YouTube's JS challenge). Fix: winget install -e --id OpenJS.NodeJS.LTS"
+    Write-Output "[MISSING] Node.js not found (downloader.py uses it to solve YouTube's JS challenge). Fix: winget install -e --id OpenJS.NodeJS.LTS"
     $blocking++
 }
 
