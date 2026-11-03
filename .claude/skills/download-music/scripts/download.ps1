@@ -1,7 +1,7 @@
 # Downloads one or more links by running the repo's downloader.py.
 #
 # Usage: download.ps1 -Url <link>[,<link>...] [-Folder <path>] [-Format mp3|webm]
-# mp3 is the default because Roll20 only accepts mp3; webm is the repo's original Foundry VTT format.
+# mp3 is the default (it plays everywhere, and Roll20 only accepts mp3); webm is YouTube's original audio.
 # Ends with a summary block (RESULT / NEW FILE / ALREADY HAD / ERROR lines).
 # Exit code: downloader.py's (0 = every link downloaded, 1 = at least one failed, 2 = couldn't start).
 
@@ -50,7 +50,7 @@ try {
 }
 
 $new = @(Get-ChildItem -LiteralPath $Folder -File |
-         Where-Object { $before -notcontains $_.Name -and $_.Name -ne 'playlist.json' -and $_.Extension -notin '.part', '.ytdl' })
+         Where-Object { $before -notcontains $_.Name -and $_.Extension -notin '.part', '.ytdl' })
 # Only count the target format: for mp3, yt-dlp also reports reusing an existing .webm as its conversion source.
 $already = @($log | Where-Object { $_ -match "\.$Format has already been downloaded" })
 $errors = @($log | Where-Object { $_ -match '^ERROR:|^Error:' })
@@ -65,5 +65,5 @@ if ($new | Where-Object { $_.Extension -ne ".$Format" }) {
     Write-Output "NOTE: some files aren't .$Format (a conversion may have failed)."
 }
 
-# downloader.py's own exit code: 0 = all links downloaded, 1 = some failed, 2 = couldn't start or write playlist.json
+# downloader.py's own exit code: 0 = all links downloaded, 1 = some failed, 2 = couldn't start
 exit $code

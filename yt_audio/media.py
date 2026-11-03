@@ -6,8 +6,6 @@ Patterns:
 - Composite: VideoNode, FailedEntryNode and PlaylistNode share the MediaNode interface, so a single
   video and a playlist of playlists are handled the same way.
 - Iterator: MediaNode.iter_videos() walks the tree lazily.
-- Visitor: MediaVisitor subclasses (DownloadedFilesCollector, PlaylistHealthInspector) compute things
-  over the tree without adding methods to the node classes.
 """
 
 from __future__ import annotations
@@ -15,17 +13,30 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any
 
-Result = TypeVar("Result")
+
+@dataclass(frozen=True)
+class EntryCount:
+    """How many entries a media tree holds, and how many of them yt-dlp couldn't download."""
+
+    total: int
+    failed: int
+
+    def __add__(self, other: EntryCount) -> EntryCount:
+        return EntryCount(self.total + other.total, self.failed + other.failed)
 
 
 class MediaNode(ABC):
     @abstractmethod
-    def iter_videos(self) -> Iterator[VideoNode]: ...
+    def iter_videos(self) -> Iterator[VideoNode]:
+        """Every downloaded video in the tree, in playlist order."""
 
     @abstractmethod
-    def accept(self, visitor: MediaVisitor[Result]) -> Result: ...
+    def count_entries(self) -> EntryCount: ...
+
+    def downloaded_files(self) -> list[str]:
+        return [path for video in self.iter_videos() for path in video.files]
 
 
 @dataclass(frozen=True)
@@ -37,8 +48,8 @@ class VideoNode(MediaNode):
     def iter_videos(self) -> Iterator[VideoNode]:
         yield self
 
-    def accept(self, visitor: MediaVisitor[Result]) -> Result:
-        return visitor.visit_video(self)
+    def count_entries(self) -> EntryCount:
+        return EntryCount(total=1, failed=0)
 
 
 @dataclass(frozen=True)
@@ -48,8 +59,8 @@ class FailedEntryNode(MediaNode):
     def iter_videos(self) -> Iterator[VideoNode]:
         yield from ()
 
-    def accept(self, visitor: MediaVisitor[Result]) -> Result:
-        return visitor.visit_failed_entry(self)
+    def count_entries(self) -> EntryCount:
+        return EntryCount(total=1, failed=1)
 
 
 @dataclass(frozen=True)
@@ -60,55 +71,11 @@ class PlaylistNode(MediaNode):
         for child in self.children:
             yield from child.iter_videos()
 
-    def accept(self, visitor: MediaVisitor[Result]) -> Result:
-        return visitor.visit_playlist(self)
+    def count_entries(self) -> EntryCount:
+        return sum((child.count_entries() for child in self.children), EntryCount(0, 0))
 
 
 NOTHING_DOWNLOADED = PlaylistNode(children=())
-
-
-class MediaVisitor(ABC, Generic[Result]):
-    @abstractmethod
-    def visit_video(self, video: VideoNode) -> Result: ...
-
-    @abstractmethod
-    def visit_failed_entry(self, entry: FailedEntryNode) -> Result: ...
-
-    @abstractmethod
-    def visit_playlist(self, playlist: PlaylistNode) -> Result: ...
-
-
-class DownloadedFilesCollector(MediaVisitor[list[str]]):
-    def visit_video(self, video: VideoNode) -> list[str]:
-        return list(video.files)
-
-    def visit_failed_entry(self, entry: FailedEntryNode) -> list[str]:
-        return []
-
-    def visit_playlist(self, playlist: PlaylistNode) -> list[str]:
-        return [path for child in playlist.children for path in child.accept(self)]
-
-
-@dataclass(frozen=True)
-class PlaylistHealth:
-    item_count: int
-    failed_count: int
-
-    def __add__(self, other: PlaylistHealth) -> PlaylistHealth:
-        return PlaylistHealth(self.item_count + other.item_count, self.failed_count + other.failed_count)
-
-
-class PlaylistHealthInspector(MediaVisitor[PlaylistHealth]):
-    """Counts the videos and the broken entries anywhere in the tree."""
-
-    def visit_video(self, video: VideoNode) -> PlaylistHealth:
-        return PlaylistHealth(item_count=1, failed_count=0)
-
-    def visit_failed_entry(self, entry: FailedEntryNode) -> PlaylistHealth:
-        return PlaylistHealth(item_count=1, failed_count=1)
-
-    def visit_playlist(self, playlist: PlaylistNode) -> PlaylistHealth:
-        return sum((child.accept(self) for child in playlist.children), PlaylistHealth(0, 0))
 
 
 class YtDlpInfoAdapter:
@@ -126,8 +93,3 @@ class YtDlpInfoAdapter:
     def _to_video(info: Mapping[str, Any]) -> VideoNode:
         files = tuple(download["filepath"] for download in info.get("requested_downloads", []) if download.get("filepath"))
         return VideoNode(video_id=info.get("id"), title=info.get("title"), files=files)
-
-
-def downloaded_files(info: Mapping[str, Any] | None) -> list[str]:
-    """The final file paths yt-dlp wrote for a video or playlist info dict."""
-    return YtDlpInfoAdapter.to_media(info).accept(DownloadedFilesCollector())

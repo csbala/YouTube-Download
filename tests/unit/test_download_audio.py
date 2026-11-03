@@ -2,9 +2,9 @@ import pytest
 import yt_dlp
 
 from yt_audio import download_audio
-from yt_audio.download import Claim, FileOwnershipRegistry, LinkOutcome
+from yt_audio.download import FileClaim, FileOwnershipRegistry, LinkOutcome
 from yt_audio.events import LinkDone, LinkStarted, TitleClash
-from yt_audio.ydl_options import YdlOptionsDirector
+from yt_audio.ytdlp_options import YtDlpOptionsDirector
 
 
 class FakeYoutubeDL:
@@ -29,10 +29,10 @@ class FakeYoutubeDL:
 
 
 @pytest.fixture
-def fake_ydl(monkeypatch):
+def fake_ytdlp(monkeypatch):
     FakeYoutubeDL.script = {}
-    # Options are covered by test_ydl_options.py; building them needs the real YoutubeDL class
-    monkeypatch.setattr(YdlOptionsDirector, "options_for", lambda self, request: {})
+    # Options are covered by test_ytdlp_options.py; building them needs the real YoutubeDL class
+    monkeypatch.setattr(YtDlpOptionsDirector, "options_for", lambda self, request: {})
     monkeypatch.setattr(yt_dlp, "YoutubeDL", FakeYoutubeDL)
     return FakeYoutubeDL.script
 
@@ -41,25 +41,25 @@ def video(path, video_id=None):
     return {"id": video_id or path, "title": path, "requested_downloads": [{"filepath": path}]}
 
 
-def test_download_audio_collects_files_from_every_link(tmp_path, fake_ydl):
-    fake_ydl.update({"https://a": video("a.webm"), "https://b": video("b.webm")})
+def test_download_audio_collects_files_from_every_link(tmp_path, fake_ytdlp):
+    fake_ytdlp.update({"https://a": video("a.mp3"), "https://b": video("b.mp3")})
 
     files, failed = download_audio(["https://a", "https://b"], str(tmp_path))
 
-    assert files == ["a.webm", "b.webm"]
+    assert files == ["a.mp3", "b.mp3"]
     assert failed == []
 
 
-def test_download_audio_counts_download_errors_and_continues(tmp_path, fake_ydl):
-    fake_ydl.update({"https://bad": yt_dlp.utils.DownloadError("Video unavailable"), "https://ok": video("ok.webm")})
+def test_download_audio_counts_download_errors_and_continues(tmp_path, fake_ytdlp):
+    fake_ytdlp.update({"https://bad": yt_dlp.utils.DownloadError("Video unavailable"), "https://ok": video("ok.mp3")})
 
     files, failed = download_audio(["https://bad", "https://ok"], str(tmp_path))
 
-    assert files == ["ok.webm"]
+    assert files == ["ok.mp3"]
     assert failed == ["https://bad"]
 
 
-def test_download_audio_creates_missing_folder(tmp_path, fake_ydl):
+def test_download_audio_creates_missing_folder(tmp_path, fake_ytdlp):
     folder = tmp_path / "new" / "folder"
 
     download_audio([], str(folder))
@@ -67,8 +67,8 @@ def test_download_audio_creates_missing_folder(tmp_path, fake_ydl):
     assert folder.is_dir()
 
 
-def test_download_audio_empty_playlist_is_a_failure(tmp_path, fake_ydl):
-    fake_ydl["https://list"] = {"entries": [None, None]}
+def test_download_audio_empty_playlist_is_a_failure(tmp_path, fake_ytdlp):
+    fake_ytdlp["https://list"] = {"entries": [None, None]}
 
     files, failed = download_audio(["https://list"], str(tmp_path), allow_playlists=True)
 
@@ -76,79 +76,79 @@ def test_download_audio_empty_playlist_is_a_failure(tmp_path, fake_ydl):
     assert failed == ["https://list (2 of 2 playlist items failed)"]
 
 
-def test_download_audio_archive_skip_is_not_a_failure(tmp_path, fake_ydl):
-    fake_ydl["https://list"] = {"entries": []}
+def test_download_audio_archive_skip_is_not_a_failure(tmp_path, fake_ytdlp):
+    fake_ytdlp["https://list"] = {"entries": []}
 
     files, failed = download_audio(["https://list"], str(tmp_path), allow_playlists=True, archive=True)
 
     assert (files, failed) == ([], [])
 
 
-def test_download_audio_playlist_with_broken_items_is_reported(tmp_path, fake_ydl):
-    fake_ydl["https://list"] = {"entries": [video("a.webm"), None, video("b.webm")]}
+def test_download_audio_playlist_with_broken_items_is_reported(tmp_path, fake_ytdlp):
+    fake_ytdlp["https://list"] = {"entries": [video("a.mp3"), None, video("b.mp3")]}
 
     files, failed = download_audio(["https://list"], str(tmp_path), allow_playlists=True)
 
-    assert files == ["a.webm", "b.webm"]
+    assert files == ["a.mp3", "b.mp3"]
     assert failed == ["https://list (1 of 3 playlist items failed)"]
 
 
-def test_download_audio_same_title_from_two_videos_is_a_failure(tmp_path, fake_ydl, capsys):
-    fake_ydl.update({"https://a": video("song.webm", "id-a"), "https://b": video("song.webm", "id-b")})
+def test_download_audio_same_title_from_two_videos_is_a_failure(tmp_path, fake_ytdlp, capsys):
+    fake_ytdlp.update({"https://a": video("song.mp3", "id-a"), "https://b": video("song.mp3", "id-b")})
 
     files, failed = download_audio(["https://a", "https://b"], str(tmp_path))
 
-    assert files == ["song.webm"]
-    assert failed == ["https://b (same title as an earlier video: song.webm)"]
+    assert files == ["song.mp3"]
+    assert failed == ["https://b (same title as an earlier video: song.mp3)"]
     assert "--suffix" in capsys.readouterr().out
 
 
-def test_download_audio_same_video_twice_is_not_a_clash(tmp_path, fake_ydl):
-    fake_ydl.update({"https://a": video("song.webm", "id-a"), "https://youtu.be/a": video("song.webm", "id-a")})
+def test_download_audio_same_video_twice_is_not_a_clash(tmp_path, fake_ytdlp):
+    fake_ytdlp.update({"https://a": video("song.mp3", "id-a"), "https://youtu.be/a": video("song.mp3", "id-a")})
 
     files, failed = download_audio(["https://a", "https://youtu.be/a"], str(tmp_path))
 
-    assert (files, failed) == (["song.webm"], [])
+    assert (files, failed) == (["song.mp3"], [])
 
 
-def test_download_audio_os_error_fails_only_that_link(tmp_path, fake_ydl, capsys):
-    fake_ydl.update({"https://locked": PermissionError(13, "Permission denied"), "https://ok": video("ok.webm")})
+def test_download_audio_os_error_fails_only_that_link(tmp_path, fake_ytdlp, capsys):
+    fake_ytdlp.update({"https://locked": PermissionError(13, "Permission denied"), "https://ok": video("ok.mp3")})
 
     files, failed = download_audio(["https://locked", "https://ok"], str(tmp_path))
 
-    assert files == ["ok.webm"]
+    assert files == ["ok.mp3"]
     assert failed == ["https://locked"]
     assert "Permission denied" in capsys.readouterr().out
 
 
-def test_download_audio_reports_progress_to_subscribers(tmp_path, fake_ydl, recorder, recorded_events, capsys):
-    fake_ydl.update({"https://a": video("song.webm", "id-a"), "https://b": video("song.webm", "id-b")})
+def test_download_audio_reports_progress_to_subscribers(tmp_path, fake_ytdlp, recorder, recorded_events, capsys):
+    fake_ytdlp.update({"https://a": video("song.mp3", "id-a"), "https://b": video("song.mp3", "id-b")})
 
     download_audio(["https://a", "https://b"], str(tmp_path), events=recorded_events)
 
     assert recorder.of_type(LinkStarted) == [LinkStarted("https://a"), LinkStarted("https://b")]
     assert recorder.of_type(LinkDone) == [LinkDone("https://a")]
-    assert recorder.of_type(TitleClash) == [TitleClash("song.webm")]
+    assert recorder.of_type(TitleClash) == [TitleClash("song.mp3")]
     assert capsys.readouterr().out == ""
 
 
 def test_ownership_registry_tells_new_repeated_and_clashing_files_apart():
     registry = FileOwnershipRegistry()
 
-    assert registry.claim("song.webm", "id-a") is Claim.NEW_FILE
-    assert registry.claim("song.webm", "id-a") is Claim.SAME_VIDEO_AGAIN
-    assert registry.claim("song.webm", "id-b") is Claim.TITLE_CLASH
-    assert registry.claim("other.webm", "id-b") is Claim.NEW_FILE
+    assert registry.claim("song.mp3", "id-a") is FileClaim.NEW_FILE
+    assert registry.claim("song.mp3", "id-a") is FileClaim.SAME_VIDEO_AGAIN
+    assert registry.claim("song.mp3", "id-b") is FileClaim.TITLE_CLASH
+    assert registry.claim("other.mp3", "id-b") is FileClaim.NEW_FILE
 
 
 @pytest.mark.parametrize(
     ("outcome", "failed", "description"),
     [
-        (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"]), False, "https://a"),
+        (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.mp3"]), False, "https://a"),
         (LinkOutcome("https://a", empty_result_is_failure=False), False, "https://a"),
         (LinkOutcome("https://a", empty_result_is_failure=True), True, "https://a"),
         (LinkOutcome.fetch_failed("https://a"), True, "https://a"),
-        (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"], problems=["x", "y"]), True, "https://a (x; y)"),
+        (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.mp3"], problems=["x", "y"]), True, "https://a (x; y)"),
     ],
     ids=["downloaded", "nothing-new-single", "nothing-new-playlist", "fetch-failed", "problems"],
 )

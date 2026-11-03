@@ -1,10 +1,10 @@
 """Downloading a batch of links as audio.
 
 Patterns:
-- Mediator: BatchDownloadSession coordinates the MediaClient, the FileOwnershipRegistry and the
-  EventBus. None of them knows about the others.
 - Facade: AudioDownloader (and download_audio) is the one simple entry point over yt-dlp, the options
   builder and the session.
+- Mediator: BatchDownloadSession coordinates the MediaClient, the FileOwnershipRegistry and the
+  EventBus. None of them knows about the others.
 """
 
 from __future__ import annotations
@@ -17,33 +17,33 @@ from typing import NamedTuple
 
 from . import tools
 from .events import BatchStarted, EventBus, LinkDone, LinkErrored, LinkStarted, TitleClash, console_event_bus
-from .formats import AudioFormat
-from .media import MediaNode, PlaylistHealthInspector
+from .formats import DEFAULT_FORMAT, AudioFormat
+from .media import MediaNode, VideoNode
 from .settings import AppSettings
 from .tools import ToolLocator
-from .ydl_client import LinkFailed, MediaClient, open_ydl_client
-from .ydl_options import DownloadRequest, YdlOptionsDirector
+from .ytdlp_client import LinkFailed, MediaClient, open_ytdlp_client
+from .ytdlp_options import DownloadRequest, YtDlpOptionsDirector
 
 
-class Claim(Enum):
+class FileClaim(Enum):
     NEW_FILE = auto()
     SAME_VIDEO_AGAIN = auto()  # e.g. the same video linked twice as youtube.com and youtu.be
     TITLE_CLASH = auto()  # a different video already wrote this file name
 
 
 class FileOwnershipRegistry:
-    """Remembers which video wrote each file, so two videos with the same title are caught."""
+    """Remembers which video wrote each file, so two different videos with the same title are caught."""
 
     def __init__(self) -> None:
         self._owner_by_path: dict[str, str | None] = {}
 
-    def claim(self, path: str, video_id: str | None) -> Claim:
+    def claim(self, path: str, video_id: str | None) -> FileClaim:
         if path not in self._owner_by_path:
             self._owner_by_path[path] = video_id
-            return Claim.NEW_FILE
+            return FileClaim.NEW_FILE
         if self._owner_by_path[path] == video_id:
-            return Claim.SAME_VIDEO_AGAIN
-        return Claim.TITLE_CLASH
+            return FileClaim.SAME_VIDEO_AGAIN
+        return FileClaim.TITLE_CLASH
 
 
 @dataclass
@@ -72,6 +72,8 @@ class BatchResult(NamedTuple):
 
 
 class BatchDownloadSession:
+    """Downloads links one at a time, and keeps track of which video wrote which file across the whole batch."""
+
     def __init__(self, client: MediaClient, request: DownloadRequest, events: EventBus) -> None:
         self._client = client
         self._request = request
@@ -86,28 +88,29 @@ class BatchDownloadSession:
                 self._events.notify(LinkErrored(result.reason))
             return LinkOutcome.fetch_failed(link)
 
-        outcome = self._collect_new_files(link, result.media)
+        outcome = self._outcome_for(link, result.media)
         if not outcome.failed:
             self._events.notify(LinkDone(link))
         return outcome
 
-    def _collect_new_files(self, link: str, media: MediaNode) -> LinkOutcome:
+    def _outcome_for(self, link: str, media: MediaNode) -> LinkOutcome:
         outcome = LinkOutcome(link, empty_result_is_failure=self._request.empty_result_is_failure)
-        health = media.accept(PlaylistHealthInspector())
-        if health.failed_count:
-            outcome.problems.append(f"{health.failed_count} of {health.item_count} playlist items failed")
-
+        entries = media.count_entries()
+        if entries.failed:
+            outcome.problems.append(f"{entries.failed} of {entries.total} playlist items failed")
         for video in media.iter_videos():
-            for path in video.files:
-                match self._ownership.claim(path, video.video_id):
-                    case Claim.NEW_FILE:
-                        outcome.files.append(path)
-                    case Claim.TITLE_CLASH:
-                        self._events.notify(TitleClash(video.title))
-                        outcome.problems.append(f"same title as an earlier video: {os.path.basename(path)}")
-                    case Claim.SAME_VIDEO_AGAIN:
-                        pass
+            self._keep_files_this_video_owns(video, outcome)
         return outcome
+
+    def _keep_files_this_video_owns(self, video: VideoNode, outcome: LinkOutcome) -> None:
+        """Add the video's new files to outcome. A file an earlier, different video already wrote is a title clash."""
+        for path in video.files:
+            claim = self._ownership.claim(path, video.video_id)
+            if claim is FileClaim.NEW_FILE:
+                outcome.files.append(path)
+            elif claim is FileClaim.TITLE_CLASH:
+                self._events.notify(TitleClash(video.title))
+                outcome.problems.append(f"same title as an earlier video: {os.path.basename(path)}")
 
 
 class AudioDownloader:
@@ -115,15 +118,15 @@ class AudioDownloader:
         self, tool_locator: ToolLocator | None = None, events: EventBus | None = None, settings: AppSettings | None = None
     ) -> None:
         self._events = events or console_event_bus()
-        self._options_director = YdlOptionsDirector(tool_locator or tools.default_tool_locator(), self._events, settings)
+        self._options_director = YtDlpOptionsDirector(tool_locator or tools.default_tool_locator(), self._events, settings)
 
     def download(self, links: Iterable[str], request: DownloadRequest) -> BatchResult:
         links = list(links)
         os.makedirs(request.folder, exist_ok=True)
-        ydl_options = self._options_director.options_for(request)
+        ytdlp_options = self._options_director.options_for(request)
 
         self._events.notify(BatchStarted(len(links), request.folder, request.audio_format.name))
-        with open_ydl_client(ydl_options) as client:
+        with open_ytdlp_client(ytdlp_options) as client:
             session = BatchDownloadSession(client, request, self._events)
             outcomes = [session.download(link) for link in links]
 
@@ -136,7 +139,7 @@ class AudioDownloader:
 def download_audio(
     links: Iterable[str],
     folder: str,
-    audio_format: str = "webm",
+    audio_format: str = DEFAULT_FORMAT,
     *,
     suffix: str = "",
     allow_playlists: bool = False,
@@ -145,7 +148,7 @@ def download_audio(
     events: EventBus | None = None,
 ) -> BatchResult:
     """Download each link as audio into folder. Returns (files, failed_links), where failed_links holds
-    each failed link, with the reason appended when it's only partly failed."""
+    each failed link, with the reason appended when it only partly failed."""
     request = DownloadRequest(
         folder, AudioFormat.from_name(audio_format), title_suffix=suffix, allow_playlists=allow_playlists, use_archive=archive
     )

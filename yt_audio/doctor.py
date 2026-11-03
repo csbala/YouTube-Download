@@ -141,7 +141,8 @@ class FfmpegCheck(SetupCheck[str | None]):
         if finding:
             return None
         return CheckResult(
-            CheckStatus.MISSING, "ffmpeg not found (needed for mp3; webm still works without it). Fix: winget install -e --id Gyan.FFmpeg"
+            CheckStatus.MISSING,
+            "ffmpeg not found (needed for mp3, the default format; --format webm works without it). Fix: winget install -e --id Gyan.FFmpeg",
         )
 
     def describe_ok(self, finding: str | None) -> str:

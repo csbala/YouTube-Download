@@ -3,12 +3,12 @@ import os
 import pytest
 
 from yt_audio import download_audio
-from yt_audio.ydl_options import max_title_length
+from yt_audio.ytdlp_options import max_title_length
 
 
 @pytest.fixture
-def music_dir(foundry_data_dir):
-    return foundry_data_dir / "Music_Import" / "test"
+def music_dir(tmp_path):
+    return tmp_path / "music"
 
 
 def test_download_webm_saves_file_and_returns_its_path(music_dir, tone_url):

@@ -1,6 +1,6 @@
 ---
 name: download-music
-description: Downloads songs and music videos from YouTube links as audio (mp3 for Roll20 by default, or webm for Foundry VTT), using this repo's downloader.py, while chatting with the user as a friendly assistant with a New York accent. Use whenever the user pastes a YouTube or youtu.be link, asks to download a song, track, music video or playlist audio, says "grab this", or invokes /download-music. Checks the setup first, offers to fix anything missing, runs the download, and explains any failure in plain words.
+description: Downloads songs and music videos from YouTube links as audio (mp3 by default, or webm), using this repo's downloader.py, while chatting with the user as a friendly assistant with a New York accent. Use whenever the user pastes a YouTube or youtu.be link, asks to download a song, track, music video or playlist audio, says "grab this", or invokes /download-music. Checks the setup first, offers to fix anything missing, runs the download, and explains any failure in plain words.
 ---
 
 # Download Music
@@ -24,7 +24,7 @@ All scripts live in `.claude/skills/download-music/scripts/` and run with PowerS
 
 - If the user didn't give a link, ask for one: "Ay, gimme the link and I'll grab it for ya."
 - Links can be several at once (space, comma or newline separated). Pass them all in one run.
-- **Format:** default to **mp3**. Roll20's jukebox only accepts mp3, and mp3 plays everywhere, Foundry VTT included. Use `webm` only when the user asks for it or says the files are only for Foundry. A webm upload to Roll20 fails with "You can't upload files of this type".
+- **Format:** default to **mp3**, which is also downloader.py's default. It plays everywhere, and Roll20's jukebox only accepts mp3. Use `webm` only when the user asks for it or doesn't want to install ffmpeg. A webm upload to Roll20 fails with "You can't upload files of this type".
 - Default destination is `%USERPROFILE%\Downloads\YouTube-Music`. Use whatever folder the user names instead. You don't need to ask if they didn't say. Just tell them where it's going.
 - If they want a whole playlist: by default a playlist link only grabs the one video it points at. `download.ps1` doesn't expose it, but `python downloader.py download "<folder>" "<playlist link>" --allow-playlists --format mp3` grabs the lot. Say how many tracks that is before you start if it's big.
 
@@ -53,13 +53,13 @@ Give it a timeout of at least 5 minutes, since long tracks take a while. The scr
 
 - runs `python downloader.py download <folder> <links...> --format <format>` (the user's `links.txt` is never touched);
 - prints yt-dlp's output and downloader.py's own `Summary:` / `FAILED:` lines, then a `===== SUMMARY =====` block with `NEW FILE`, `ALREADY HAD` and `ERROR` lines;
-- exits with downloader.py's own code: 0 when every link downloaded, 1 when something failed (a `FAILED:` line says which link, and for a playlist how many items), and 2 when it couldn't start or couldn't write `playlist.json`.
+- exits with downloader.py's own code: 0 when every link downloaded, 1 when something failed (a `FAILED:` line says which link, and for a playlist how many items), and 2 when it couldn't start.
 
 ### 4. Report back
 
 Base the report on the summary block:
 
-- **Success:** give the file name(s), the size and the folder. For mp3, remind the user they can drag the file straight into Roll20's jukebox. For webm, mention that `downloader.py` also wrote a `playlist.json` (a Foundry VTT playlist of every webm in that folder). Example: "Alright, we're in business! Got **Song Title.mp3** (4.2 MB) sittin' in `Downloads\YouTube-Music`. Drag it into Roll20's jukebox and you're set."
+- **Success:** give the file name(s), the size and the folder. For mp3, remind the user they can drag the file straight into Roll20's jukebox. For webm, mention that Roll20 won't take it. Example: "Alright, we're in business! Got **Song Title.mp3** (4.2 MB) sittin' in `Downloads\YouTube-Music`. Drag it into Roll20's jukebox and you're set."
 - **Already had it:** say it was already there, so nothing new was downloaded.
 - **Failure:** say which link failed and why, in plain words, then fix it or offer to (see the next section). Never just paste the raw error.
 
@@ -77,7 +77,6 @@ Match the yt-dlp `ERROR:` text and help out. Retry once by yourself when the fix
 | `node` / `JavaScript runtime` errors | Node.js missing or broken (downloader.py looks on PATH, then in `C:\Program Files\nodejs`) | Offer `winget install -e --id OpenJS.NodeJS.LTS`. |
 | `ffmpeg is required for mp3` / `ffmpeg not found` / `Postprocessing` errors | ffmpeg is missing, so the mp3 conversion can't run | Offer `winget install -e --id Gyan.FFmpeg`. downloader.py finds it even before the shell restarts. |
 | `has the same file name as an earlier video` | Two different videos have the same title, so the second would overwrite the first | Download that link again on its own with `python downloader.py download "<folder>" "<link>" --format mp3 --suffix " (2)"`. |
-| `couldn't write playlist.json` | The folder isn't inside Foundry's `Data` folder, or the `--foundry-root` is wrong | The audio files are fine. Explain, and rerun `python downloader.py playlist "<folder>" --foundry-root "<Data folder>"` if they need the playlist. |
 | Roll20 says "You can't upload files of this type" | The file is webm, not mp3 | Download it again with `-Format mp3`. |
 | `[Errno 13]` / `Permission denied` | Folder is locked, or a file is open in a player | Ask the user to close the player or pick another folder. |
 

@@ -1,15 +1,6 @@
 import pytest
 
-from yt_audio.media import (
-    NOTHING_DOWNLOADED,
-    FailedEntryNode,
-    PlaylistHealth,
-    PlaylistHealthInspector,
-    PlaylistNode,
-    VideoNode,
-    YtDlpInfoAdapter,
-    downloaded_files,
-)
+from yt_audio.media import NOTHING_DOWNLOADED, EntryCount, FailedEntryNode, PlaylistNode, VideoNode, YtDlpInfoAdapter
 
 
 def video(*paths):
@@ -29,8 +20,8 @@ def video(*paths):
     ],
     ids=["none", "empty", "video", "missing-filepath", "playlist", "nested-playlist", "empty-playlist"],
 )
-def test_downloaded_files(info, expected):
-    assert downloaded_files(info) == expected
+def test_downloaded_files_of_any_info_dict(info, expected):
+    assert YtDlpInfoAdapter.to_media(info).downloaded_files() == expected
 
 
 def test_adapter_builds_a_tree_of_videos_playlists_and_failed_entries():
@@ -62,13 +53,13 @@ def test_iter_videos_walks_nested_playlists_in_order_and_skips_failed_entries():
 
 
 @pytest.mark.parametrize(
-    ("tree", "health"),
+    ("tree", "count"),
     [
-        (NOTHING_DOWNLOADED, PlaylistHealth(0, 0)),
-        (VideoNode("1", None, ()), PlaylistHealth(1, 0)),
-        (PlaylistNode((VideoNode("1", None, ()), FailedEntryNode(), PlaylistNode((FailedEntryNode(),)))), PlaylistHealth(3, 2)),
+        (NOTHING_DOWNLOADED, EntryCount(0, 0)),
+        (VideoNode("1", None, ()), EntryCount(1, 0)),
+        (PlaylistNode((VideoNode("1", None, ()), FailedEntryNode(), PlaylistNode((FailedEntryNode(),)))), EntryCount(3, 2)),
     ],
     ids=["nothing", "single-video", "nested-with-failures"],
 )
-def test_health_inspector_counts_items_and_failures_anywhere_in_the_tree(tree, health):
-    assert tree.accept(PlaylistHealthInspector()) == health
+def test_count_entries_finds_failures_anywhere_in_the_tree(tree, count):
+    assert tree.count_entries() == count

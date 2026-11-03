@@ -6,13 +6,10 @@ from yt_audio.events import (
     CookiesMissing,
     Event,
     EventBus,
-    FoundryRootGuessed,
     LinkDone,
     LinkErrored,
     LinkStarted,
     NodeMissing,
-    PlaylistEmpty,
-    PlaylistWritten,
     TitleClash,
 )
 
@@ -49,12 +46,6 @@ def test_bus_notifies_every_subscriber_until_it_unsubscribes(recorder):
             "ERROR: Song has the same file name as an earlier video, so it was skipped. Download it again on its own with --suffix.",
         ),
         (LinkDone("https://a"), "Done: https://a"),
-        (
-            FoundryRootGuessed("C:/x/tavern", "Music_Import/tavern"),
-            "Warning: C:/x/tavern isn't inside a Foundry Data folder, so track paths assume Music_Import/tavern/. Use --foundry-root to set it.",
-        ),
-        (PlaylistEmpty("out", ".webm"), "No .webm files found in out. Playlist will be empty."),
-        (PlaylistWritten(3, "out/playlist.json"), "Playlist with 3 tracks written to: out/playlist.json"),
     ],
     ids=lambda value: type(value).__name__ if isinstance(value, Event) else "",
 )
