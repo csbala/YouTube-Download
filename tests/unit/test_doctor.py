@@ -74,7 +74,7 @@ def test_doctor_cookie_problems_only_warn(ready, capsys):
     assert "isn't in Netscape format" in capsys.readouterr().out
 
     ready.write_text("# Netscape HTTP Cookie File\n")
-    old = time.time() - 40 * 86400
+    old = time.time() - 40.5 * 86400  # mid-day, so clock jitter can't round it down to 39
     os.utime(ready, (old, old))
     assert main(["doctor"]) == 0
     assert "40 days old" in capsys.readouterr().out
