@@ -11,3 +11,6 @@ links.txt
 *.png
 *.webm
 *.mp3
+.pytest_cache/
+.coverage
+htmlcov/

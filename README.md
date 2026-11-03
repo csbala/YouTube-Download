@@ -80,8 +80,12 @@ Tested against Foundry VTT 12.331. Importing very large playlists (100+ tracks) 
 ## Tests
 
 ```
-python -m unittest discover -s tests
+pip install -r requirements-dev.txt
+pytest              # unit + integration, no internet needed
+pytest -m e2e       # real YouTube downloads
 ```
+
+See [tests/README.md](tests/README.md) for how the suite is organised. GitHub Actions runs unit and integration tests on Windows and Linux on every push.
 
 ## License
 

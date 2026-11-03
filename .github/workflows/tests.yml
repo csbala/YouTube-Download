@@ -1,0 +1,50 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      e2e:
+        description: "Also run the e2e tests against real YouTube (often blocked from CI servers)"
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    name: unit + integration (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+      - run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest -m "unit or integration" --cov=downloader --cov-report=term-missing --cov-fail-under=90
+
+  e2e:
+    name: e2e (real YouTube)
+    if: github.event_name == 'workflow_dispatch' && inputs.e2e
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: choco install ffmpeg -y --no-progress
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -m e2e -v

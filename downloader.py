@@ -132,13 +132,15 @@ def foundry_relative_folder(folder_path, foundry_root=None):
     """Path of folder_path relative to Foundry's Data folder, with forward slashes."""
     folder_path = os.path.abspath(folder_path)
     if foundry_root is None:
-        # Look for an enclosing folder named "Data", e.g. ...\FoundryVTT\Data\Music_Import\apple
-        parent = folder_path
-        while os.path.dirname(parent) != parent:
-            parent = os.path.dirname(parent)
-            if os.path.basename(parent).lower() == "data":
-                foundry_root = parent
+        # Look for the folder itself or an enclosing folder named "Data", e.g. ...\FoundryVTT\Data\Music_Import\apple
+        candidate = folder_path
+        while True:
+            if os.path.basename(candidate).lower() == "data":
+                foundry_root = candidate
                 break
+            if os.path.dirname(candidate) == candidate:
+                break
+            candidate = os.path.dirname(candidate)
     if foundry_root is None:
         fallback = "Music_Import/" + os.path.basename(folder_path)
         print(f"Warning: {folder_path} isn't inside a Foundry Data folder, so track paths assume {fallback}/. Use --foundry-root to set it.")
