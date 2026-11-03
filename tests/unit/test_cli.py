@@ -97,13 +97,13 @@ def test_main_passes_download_options(calls):
     }
 
 
-def test_main_playlist_command_only_writes_json(calls):
-    exit_code = main(["playlist", "out", "--format", "mp3", "--volume", "0.2",
+def test_main_playlist_command_only_writes_json(calls, tmp_path):
+    exit_code = main(["playlist", str(tmp_path), "--format", "mp3", "--volume", "0.2",
                       "--foundry-root", "root", "--foundry-folder", "abc"])
 
     assert exit_code == 0
     assert calls.downloads == []
-    assert calls.playlists == [{"folder": "out", "audio_format": "mp3", "foundry_root": "root",
+    assert calls.playlists == [{"folder": str(tmp_path), "audio_format": "mp3", "foundry_root": "root",
                                 "volume": 0.2, "foundry_folder": "abc"}]
 
 
@@ -112,3 +112,42 @@ def test_main_without_command_shows_usage(calls):
         main([])
 
     assert exc.value.code == 2
+
+
+def test_main_playlist_command_missing_folder_exits_2(tmp_path, capsys):
+    exit_code = main(["playlist", str(tmp_path / "missing")])
+
+    assert exit_code == 2
+    assert "not found" in capsys.readouterr().out
+
+
+def test_main_playlist_command_bad_foundry_root_exits_2(tmp_path, capsys):
+    (tmp_path / "music").mkdir()
+    (tmp_path / "root").mkdir()
+
+    exit_code = main(["playlist", str(tmp_path / "music"), "--foundry-root", str(tmp_path / "root")])
+
+    assert exit_code == 2
+    assert "Error: couldn't write playlist.json" in capsys.readouterr().out
+
+
+def test_main_playlist_error_after_download_still_prints_summary(calls, monkeypatch, capsys):
+    def broken_write_playlist(folder, **options):
+        raise ValueError("out is not inside the Foundry root root")
+    monkeypatch.setattr(downloader, "write_playlist", broken_write_playlist)
+
+    exit_code = main(["download", "out", "https://a"])
+
+    assert exit_code == 2
+    output = capsys.readouterr().out
+    assert "Error: couldn't write playlist.json" in output
+    assert "Summary: 1 of 1 links downloaded" in output
+
+
+@pytest.mark.parametrize("value", ["-0.1", "1.5", "loud"])
+def test_main_rejects_volume_outside_0_to_1(calls, value, capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["download", "out", "https://a", "--volume", value])
+
+    assert exc.value.code == 2
+    assert "must be a number from 0 to 1" in capsys.readouterr().err

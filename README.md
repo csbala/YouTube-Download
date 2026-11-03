@@ -7,13 +7,21 @@ Downloads audio from YouTube links and, for Foundry Virtual Tabletop, writes a `
 
 ## Requirements
 
-- **Python 3.9 or later**
-- **yt-dlp** 2025.11.12 or newer: `pip install -r requirements.txt`
+- **Python 3.10 or later** (yt-dlp needs it)
+- **yt-dlp** 2025.11.12 or newer, with its default extras (they include `yt-dlp-ejs`, the YouTube challenge solver): `pip install -r requirements.txt`
 - **Node.js**: yt-dlp uses it to solve YouTube's JavaScript challenge. `winget install -e --id OpenJS.NodeJS.LTS`
 - **ffmpeg** (mp3 only): `winget install -e --id Gyan.FFmpeg`. The script finds a winget install even before you open a new terminal.
 - **cookies.txt** (optional): needed for age-restricted videos and "confirm you're not a bot" blocks. Export your YouTube cookies with a browser extension such as "Get cookies.txt LOCALLY" and save the file as `cookies.txt` next to `downloader.py`. Git ignores it. **Never commit it**: it's your Google login.
 
 ## Usage
+
+### Check your setup
+
+```
+python downloader.py doctor
+```
+
+Lists what's ready and what's missing (yt-dlp, Node.js, ffmpeg, cookies.txt), each with the command that fixes it. Exits with code 1 if something blocks a download.
 
 ### Download
 
@@ -40,7 +48,9 @@ python downloader.py download "%USERPROFILE%\Downloads\YouTube-Music" --format m
 | `--suffix TEXT` | Add text after each title, e.g. `--suffix " [EXTENDED]"` |
 | `--playlist-json` / `--no-playlist-json` | Force `playlist.json` on or off (default: on for webm, off for mp3) |
 
-The script exits with code 1 and lists the `FAILED:` links if any download fails.
+The script exits with code 1 and lists the `FAILED:` links if any download fails. A playlist link with some broken videos is listed too, with how many failed. If it can't start (for example, ffmpeg is missing for mp3) or can't write `playlist.json`, it exits with code 2.
+
+Files are named after the video title. Very long titles are shortened so the full path stays under Windows' 260-character limit. If two different videos have the same title, the second one is reported as failed instead of silently skipped: download it again on its own with `--suffix`.
 
 ### Rebuild the playlist only
 
@@ -72,10 +82,11 @@ Tested against Foundry VTT 12.331. Importing very large playlists (100+ tracks) 
 
 ## Troubleshooting
 
-- **Download fails** (403, "Unable to extract", "nsig"): update yt-dlp with `pip install -U yt-dlp`.
+- **Download fails** (403, "Unable to extract", "nsig"): update yt-dlp with `pip install -U "yt-dlp[default]"`.
 - **"Sign in to confirm you're not a bot" / age restriction**: export fresh cookies into `cookies.txt`.
+- **Not sure what's wrong**: run `python downloader.py doctor`.
 - **ffmpeg not found**: install it (see above) or use `--format webm`.
-- **Foundry can't find the tracks**: make sure the folder is inside Foundry's `Data` directory, or pass `--foundry-root`.
+- **Foundry can't find the tracks**: make sure the folder is inside Foundry's `Data` directory, or pass `--foundry-root`. The script only recognises a `Data` folder that sits next to Foundry's `Config` folder or inside a folder with "foundry" in its name.
 
 ## Tests
 

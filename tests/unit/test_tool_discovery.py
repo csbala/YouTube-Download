@@ -53,3 +53,18 @@ def test_find_ffmpeg_missing_returns_none(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
     assert downloader.find_ffmpeg() is None
+
+
+def test_find_ffmpeg_picks_newest_of_several_winget_installs(monkeypatch, tmp_path):
+    packages = tmp_path / "Microsoft" / "WinGet" / "Packages"
+    exes = []
+    for i, version in enumerate(["ffmpeg-8.0", "ffmpeg-7.1"]):
+        exe = packages / f"Gyan.FFmpeg_{i}" / version / "bin" / "ffmpeg.exe"
+        exe.parent.mkdir(parents=True)
+        exe.write_bytes(b"")
+        os.utime(exe, (1000 + i, 1000 + i))
+        exes.append(exe)
+    monkeypatch.setattr(downloader.shutil, "which", which_finds({}))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    assert downloader.find_ffmpeg() == str(exes[1].parent)

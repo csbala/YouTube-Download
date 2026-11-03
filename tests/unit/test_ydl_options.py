@@ -32,14 +32,49 @@ def test_mp3_without_ffmpeg_raises(tmp_path, fake_tools):
 def test_output_template_has_folder_title_and_suffix(tmp_path, fake_tools):
     opts = build_ydl_options(str(tmp_path), "webm", suffix=" [EXTENDED]")
 
-    assert opts["outtmpl"]["default"] == os.path.join(str(tmp_path), "%(title)s [EXTENDED].%(ext)s")
+    assert opts["paths"]["home"] == str(tmp_path)
+    assert opts["outtmpl"]["default"] == "%(title)s [EXTENDED].%(ext)s"
+
+
+def test_percent_in_suffix_is_kept_literally(tmp_path, fake_tools):
+    opts = build_ydl_options(str(tmp_path), "webm", suffix=" 100%")
+
+    assert opts["outtmpl"]["default"] == "%(title)s 100%%.%(ext)s"
+
+
+def test_long_titles_are_trimmed(tmp_path, fake_tools):
+    opts = build_ydl_options(str(tmp_path), "webm")
+
+    assert opts["trim_file_name"] == downloader.max_filename_length(str(tmp_path))
+
+
+@pytest.mark.parametrize("folder_length, expected", [
+    (20, downloader.MAX_FILENAME_LENGTH),
+    (150, 90),
+    (230, 40),
+])
+def test_max_filename_length_leaves_room_for_the_folder(monkeypatch, folder_length, expected):
+    monkeypatch.setattr(downloader.os.path, "abspath", lambda p: p)
+
+    assert downloader.max_filename_length("x" * folder_length) == expected
 
 
 def test_node_is_used_as_js_runtime(tmp_path, fake_tools):
     opts = build_ydl_options(str(tmp_path), "webm")
 
     assert opts["js_runtimes"]["node"] == {"path": fake_tools.node}
-    assert opts["remote_components"] == ["ejs:github"]
+
+
+@pytest.mark.parametrize("ejs_installed, remote_components", [
+    (True, []),
+    (False, ["ejs:github"]),
+])
+def test_challenge_solver_from_github_only_without_ejs(tmp_path, fake_tools, monkeypatch, ejs_installed, remote_components):
+    monkeypatch.setattr(downloader, "has_ejs", lambda: ejs_installed)
+
+    opts = build_ydl_options(str(tmp_path), "webm")
+
+    assert opts.get("remote_components", []) == remote_components
 
 
 def test_missing_node_warns_and_is_not_configured(tmp_path, fake_tools, capsys):
