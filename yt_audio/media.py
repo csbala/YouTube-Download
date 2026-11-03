@@ -9,6 +9,7 @@ Patterns:
 - Visitor: MediaVisitor subclasses (DownloadedFilesCollector, PlaylistHealthInspector) compute things
   over the tree without adding methods to the node classes.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

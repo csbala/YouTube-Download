@@ -6,6 +6,7 @@ Patterns:
 - Facade: AudioDownloader (and download_audio) is the one simple entry point over yt-dlp, the options
   builder and the session.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,7 +28,7 @@ from .ydl_options import DownloadRequest, YdlOptionsDirector
 class Claim(Enum):
     NEW_FILE = auto()
     SAME_VIDEO_AGAIN = auto()  # e.g. the same video linked twice as youtube.com and youtu.be
-    TITLE_CLASH = auto()       # a different video already wrote this file name
+    TITLE_CLASH = auto()  # a different video already wrote this file name
 
 
 class FileOwnershipRegistry:
@@ -110,8 +111,9 @@ class BatchDownloadSession:
 
 
 class AudioDownloader:
-    def __init__(self, tool_locator: ToolLocator | None = None, events: EventBus | None = None,
-                 settings: AppSettings | None = None) -> None:
+    def __init__(
+        self, tool_locator: ToolLocator | None = None, events: EventBus | None = None, settings: AppSettings | None = None
+    ) -> None:
         self._events = events or console_event_bus()
         self._options_director = YdlOptionsDirector(tool_locator or tools.default_tool_locator(), self._events, settings)
 
@@ -131,11 +133,20 @@ class AudioDownloader:
         )
 
 
-def download_audio(links: Iterable[str], folder: str, audio_format: str = "webm", *, suffix: str = "",
-                   allow_playlists: bool = False, archive: bool = False,
-                   tool_locator: ToolLocator | None = None, events: EventBus | None = None) -> BatchResult:
+def download_audio(
+    links: Iterable[str],
+    folder: str,
+    audio_format: str = "webm",
+    *,
+    suffix: str = "",
+    allow_playlists: bool = False,
+    archive: bool = False,
+    tool_locator: ToolLocator | None = None,
+    events: EventBus | None = None,
+) -> BatchResult:
     """Download each link as audio into folder. Returns (files, failed_links), where failed_links holds
     each failed link, with the reason appended when it's only partly failed."""
-    request = DownloadRequest(folder, AudioFormat.from_name(audio_format), title_suffix=suffix,
-                              allow_playlists=allow_playlists, use_archive=archive)
+    request = DownloadRequest(
+        folder, AudioFormat.from_name(audio_format), title_suffix=suffix, allow_playlists=allow_playlists, use_archive=archive
+    )
     return AudioDownloader(tool_locator, events).download(links, request)

@@ -5,6 +5,7 @@ Patterns:
 - Factory Method: AudioFormat.from_name() turns a command-line choice into a strategy.
 - Flyweight: formats hold no per-download state, so one shared instance per format lives in AUDIO_FORMATS.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -39,6 +40,7 @@ class AudioFormat(ABC):
 
 class WebmFormat(AudioFormat):
     """YouTube's own audio stream, untouched. Foundry VTT plays it directly."""
+
     name = "webm"
 
     def ydl_args(self, ffmpeg_dir: str | None) -> list[str]:
@@ -47,6 +49,7 @@ class WebmFormat(AudioFormat):
 
 class Mp3Format(AudioFormat):
     """Converted with ffmpeg, because Roll20's jukebox only accepts mp3."""
+
     name = "mp3"
 
     def ydl_args(self, ffmpeg_dir: str | None) -> list[str]:

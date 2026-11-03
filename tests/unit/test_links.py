@@ -3,15 +3,19 @@ import pytest
 from yt_audio.links import iter_links, read_links
 
 
-@pytest.mark.parametrize(("content", "expected"), [
-    ("https://a\nhttps://b\n", ["https://a", "https://b"]),
-    ("https://a, https://b,https://c", ["https://a", "https://b", "https://c"]),
-    ("https://a\n\n\nhttps://b", ["https://a", "https://b"]),
-    ("  https://a  \n\thttps://b\t", ["https://a", "https://b"]),
-    ("# my list\nhttps://a\n  # indented comment\n", ["https://a"]),
-    ("https://a, https://b\nhttps://c", ["https://a", "https://b", "https://c"]),
-    ("", []),
-], ids=["lines", "commas", "blank-lines", "whitespace", "comments", "mixed", "empty"])
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ("https://a\nhttps://b\n", ["https://a", "https://b"]),
+        ("https://a, https://b,https://c", ["https://a", "https://b", "https://c"]),
+        ("https://a\n\n\nhttps://b", ["https://a", "https://b"]),
+        ("  https://a  \n\thttps://b\t", ["https://a", "https://b"]),
+        ("# my list\nhttps://a\n  # indented comment\n", ["https://a"]),
+        ("https://a, https://b\nhttps://c", ["https://a", "https://b", "https://c"]),
+        ("", []),
+    ],
+    ids=["lines", "commas", "blank-lines", "whitespace", "comments", "mixed", "empty"],
+)
 def test_read_links_parses_file_formats(tmp_path, content, expected):
     links_file = tmp_path / "links.txt"
     links_file.write_text(content, encoding="utf-8")

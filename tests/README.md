@@ -7,7 +7,7 @@ pytest -m unit              # fast, < 1 s
 pytest -m integration       # real yt-dlp + ffmpeg, no internet
 pytest -m e2e               # real YouTube; needs internet, Node.js and ffmpeg
 pytest --cov=yt_audio --cov-report=term-missing
-ruff check . && mypy        # lint and strict type check, as CI runs them
+ruff format --check . && ruff check . && mypy   # format, lint and strict type check, as CI runs them
 ```
 
 Each test is marked with its layer automatically by the folder it's in (see `conftest.py`), so test files never repeat the marker.

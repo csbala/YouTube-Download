@@ -2,6 +2,7 @@
 
 These use the real repo files, including cookies.txt if present, exactly as a user would.
 """
+
 import json
 import os
 import subprocess
@@ -20,8 +21,7 @@ pytestmark = pytest.mark.skipif(SystemToolLocator().node_path() is None, reason=
 
 def run(*args, timeout=600):
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    return subprocess.run([*map(str, args)], cwd=REPO_ROOT, capture_output=True, text=True,
-                          encoding="utf-8", env=env, timeout=timeout)
+    return subprocess.run([*map(str, args)], cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8", env=env, timeout=timeout)
 
 
 @pytest.fixture
@@ -65,8 +65,7 @@ def test_youtube_unavailable_video_exits_1(music_dir):
 def test_skill_download_script(music_dir):
     script = os.path.join(".claude", "skills", "download-music", "scripts", "download.ps1")
 
-    result = run("powershell", "-ExecutionPolicy", "Bypass", "-File", script,
-                 "-Url", VIDEO_URL, "-Folder", music_dir, "-Format", "webm")
+    result = run("powershell", "-ExecutionPolicy", "Bypass", "-File", script, "-Url", VIDEO_URL, "-Folder", music_dir, "-Format", "webm")
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "NEW FILE:" in result.stdout

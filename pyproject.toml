@@ -35,16 +35,25 @@ line-length = 140
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF", "PT"]
+select = [
+    "E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF", "PT",
+    "C90",  # cyclomatic complexity
+    "S",    # security (the bandit checks)
+]
 ignore = [
     "E501",    # user-facing messages are kept on one line so they can be grepped
     "RUF001",  # test data uses non-ASCII on purpose (Hungarian file names)
 ]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "RUF012",  # test fakes keep their recordings in class attributes
     "PT018",   # `assert a and b` reads fine for "neither of these appears in the output"
+    "S101",    # pytest is built on assert
+    "S603",    # tests run the CLI and ffmpeg as subprocesses, with arguments they build themselves
 ]
 
 [tool.mypy]

@@ -4,6 +4,7 @@ Pattern: Observer. Library code notifies an EventBus instead of printing; Consol
 subscriber that turns events into the console lines users (and the download-music skill) read.
 Every user-facing progress message lives in ConsoleReporter.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -95,12 +96,14 @@ class ConsoleReporter:
             print(message)
 
     @staticmethod
-    def describe(event: Event) -> str | None:
+    def describe(event: Event) -> str | None:  # noqa: C901 - one flat case per event; a lookup table would lose mypy's checks
         match event:
             case NodeMissing():
                 return "Warning: Node.js not found. YouTube downloads may fail. Install it with: winget install -e --id OpenJS.NodeJS.LTS"
             case CookiesMissing(cookies_file):
-                return f"Warning: Cookies file not found at {cookies_file}. Proceeding without cookies (may fail for age-restricted videos)."
+                return (
+                    f"Warning: Cookies file not found at {cookies_file}. Proceeding without cookies (may fail for age-restricted videos)."
+                )
             case BatchStarted(link_count, folder, audio_format):
                 return f"Starting batch download for {link_count} links to {folder} as .{audio_format}..."
             case LinkStarted(link):
@@ -108,13 +111,17 @@ class ConsoleReporter:
             case LinkErrored(reason):
                 return f"ERROR: {reason}"
             case TitleClash(title):
-                return (f"ERROR: {title} has the same file name as an earlier video, so it was skipped. "
-                        f"Download it again on its own with --suffix.")
+                return (
+                    f"ERROR: {title} has the same file name as an earlier video, so it was skipped. "
+                    f"Download it again on its own with --suffix."
+                )
             case LinkDone(link):
                 return f"Done: {link}"
             case FoundryRootGuessed(folder, assumed_folder):
-                return (f"Warning: {folder} isn't inside a Foundry Data folder, so track paths assume {assumed_folder}/. "
-                        f"Use --foundry-root to set it.")
+                return (
+                    f"Warning: {folder} isn't inside a Foundry Data folder, so track paths assume {assumed_folder}/. "
+                    f"Use --foundry-root to set it."
+                )
             case PlaylistEmpty(folder, extension):
                 return f"No {extension} files found in {folder}. Playlist will be empty."
             case PlaylistWritten(track_count, output_path):

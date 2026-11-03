@@ -2,6 +2,7 @@
 
 The code lives in the yt_audio package next to this file.
 """
+
 import sys
 
 from yt_audio.cli import main

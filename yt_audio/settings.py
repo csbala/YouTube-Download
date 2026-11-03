@@ -5,6 +5,7 @@ Patterns:
 - Memento: SettingsHolder.save() / restore() snapshot and roll back the settings, which is what
   override_settings() uses so tests never read the user's real cookies.txt or links.txt.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,11 +43,13 @@ class AppSettings:
 @dataclass(frozen=True)
 class SettingsMemento:
     """An opaque snapshot of the settings, handed back to SettingsHolder.restore()."""
+
     _state: AppSettings
 
 
 class SettingsHolder:
     """Singleton holder of the current AppSettings."""
+
     _instance: SettingsHolder | None = None
     _lock = threading.Lock()
     _settings: AppSettings

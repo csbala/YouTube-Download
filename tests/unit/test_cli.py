@@ -8,6 +8,7 @@ from yt_audio.cli import ExitCode, Services, main
 def calls(monkeypatch):
     """Replace the download and playlist services with recorders. Set calls.failed to simulate failed links,
     calls.error to make the download raise, calls.playlist_error to make writing playlist.json raise."""
+
     class Calls:
         downloads = []
         playlists = []
@@ -80,12 +81,15 @@ def test_main_legacy_generate_flag_still_downloads(calls):
     assert calls.downloads[0]["folder"] == "out"
 
 
-@pytest.mark.parametrize(("args", "writes_playlist"), [
-    (["--format", "webm"], True),
-    (["--format", "mp3"], False),
-    (["--format", "mp3", "--playlist-json"], True),
-    (["--format", "webm", "--no-playlist-json"], False),
-])
+@pytest.mark.parametrize(
+    ("args", "writes_playlist"),
+    [
+        (["--format", "webm"], True),
+        (["--format", "mp3"], False),
+        (["--format", "mp3", "--playlist-json"], True),
+        (["--format", "webm", "--no-playlist-json"], False),
+    ],
+)
 def test_main_playlist_json_default_depends_on_format(calls, args, writes_playlist):
     main(["download", "out", "https://a", *args])
 
@@ -96,19 +100,23 @@ def test_main_passes_download_options(calls):
     main(["download", "out", "https://a", "--suffix", " X", "--allow-playlists", "--archive", "--format", "mp3"])
 
     assert calls.downloads[0] == {
-        "links": ["https://a"], "folder": "out", "format": "mp3",
-        "suffix": " X", "allow_playlists": True, "archive": True,
+        "links": ["https://a"],
+        "folder": "out",
+        "format": "mp3",
+        "suffix": " X",
+        "allow_playlists": True,
+        "archive": True,
     }
 
 
 def test_main_playlist_command_only_writes_json(calls, tmp_path):
-    exit_code = main(["playlist", str(tmp_path), "--format", "mp3", "--volume", "0.2",
-                      "--foundry-root", "root", "--foundry-folder", "abc"])
+    exit_code = main(["playlist", str(tmp_path), "--format", "mp3", "--volume", "0.2", "--foundry-root", "root", "--foundry-folder", "abc"])
 
     assert exit_code == 0
     assert calls.downloads == []
-    assert calls.playlists == [{"folder": str(tmp_path), "audio_format": "mp3", "foundry_root": "root",
-                                "volume": 0.2, "foundry_folder": "abc"}]
+    assert calls.playlists == [
+        {"folder": str(tmp_path), "audio_format": "mp3", "foundry_root": "root", "volume": 0.2, "foundry_folder": "abc"}
+    ]
 
 
 def test_main_without_command_shows_usage(calls):

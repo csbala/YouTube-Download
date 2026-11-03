@@ -17,10 +17,13 @@ def test_build_playlist_lists_tracks_sorted_by_filename(apple_folder, make_audio
     assert [s["sort"] for s in playlist["sounds"]] == [0, 1, 2]
 
 
-@pytest.mark.parametrize(("audio_format", "expected"), [
-    ("webm", ["a", "b"]),
-    ("mp3", ["c", "d"]),
-])
+@pytest.mark.parametrize(
+    ("audio_format", "expected"),
+    [
+        ("webm", ["a", "b"]),
+        ("mp3", ["c", "d"]),
+    ],
+)
 def test_build_playlist_includes_only_chosen_format(apple_folder, make_audio_files, audio_format, expected):
     make_audio_files(apple_folder, "a.webm", "b.WEBM", "c.mp3", "d.MP3", "notes.txt", "playlist.json")
 
@@ -29,11 +32,14 @@ def test_build_playlist_includes_only_chosen_format(apple_folder, make_audio_fil
     assert [s["name"] for s in playlist["sounds"]] == expected
 
 
-@pytest.mark.parametrize(("filename", "expected_path"), [
-    ("A song.webm", "Music_Import/apple/A%20song.webm"),
-    ("Track #1.webm", "Music_Import/apple/Track%20%231.webm"),
-    ("Zene ő.webm", "Music_Import/apple/Zene%20%C5%91.webm"),
-])
+@pytest.mark.parametrize(
+    ("filename", "expected_path"),
+    [
+        ("A song.webm", "Music_Import/apple/A%20song.webm"),
+        ("Track #1.webm", "Music_Import/apple/Track%20%231.webm"),
+        ("Zene ő.webm", "Music_Import/apple/Zene%20%C5%91.webm"),
+    ],
+)
 def test_build_playlist_url_encodes_paths(apple_folder, make_audio_files, filename, expected_path):
     make_audio_files(apple_folder, filename)
 

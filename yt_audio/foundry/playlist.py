@@ -5,6 +5,7 @@ Patterns:
 - Bridge: PlaylistWriter (what to write) holds a PlaylistSink (where it goes), and the two vary
   independently: JsonFileSink writes playlist.json, MemorySink keeps it, e.g. for tests or previews.
 """
+
 from __future__ import annotations
 
 import copy
@@ -31,7 +32,7 @@ Sound = dict[str, Any]
 
 def stable_id(text: str) -> str:
     """16-character ID derived from text, so re-imports keep the same track IDs."""
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha1(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -52,20 +53,22 @@ class SoundPrototype:
         return sound
 
 
-FOUNDRY_SOUND = SoundPrototype({
-    "name": "",
-    "path": "",
-    "channel": "music",
-    "repeat": False,
-    "fade": None,
-    "description": "",
-    "volume": 0.5,
-    "_id": "",
-    "playing": False,
-    "pausedTime": None,
-    "sort": 0,
-    "flags": {},
-})
+FOUNDRY_SOUND = SoundPrototype(
+    {
+        "name": "",
+        "path": "",
+        "channel": "music",
+        "repeat": False,
+        "fade": None,
+        "description": "",
+        "volume": 0.5,
+        "_id": "",
+        "playing": False,
+        "pausedTime": None,
+        "sort": 0,
+        "flags": {},
+    }
+)
 
 
 class PlaylistAssembler:
@@ -83,8 +86,7 @@ class PlaylistAssembler:
             self._events.notify(PlaylistEmpty(os.fspath(folder), audio_format.extension))
 
         relative_folder = self._locator.relative_folder(folder, options.foundry_root)
-        sounds = [self._sound_for(filename, relative_folder, position, options.volume)
-                  for position, filename in enumerate(audio_files)]
+        sounds = [self._sound_for(filename, relative_folder, position, options.volume) for position, filename in enumerate(audio_files)]
 
         current_time = int(self._now().timestamp() * 1000)
         return {
@@ -157,16 +159,29 @@ class PlaylistWriter:
         return location
 
 
-def build_playlist(folder: PathLike, audio_format: str = "webm", foundry_root: PathLike | None = None,
-                   volume: float = 0.5, foundry_folder: str | None = None, events: EventBus | None = None) -> Playlist:
+def build_playlist(
+    folder: PathLike,
+    audio_format: str = "webm",
+    foundry_root: PathLike | None = None,
+    volume: float = 0.5,
+    foundry_folder: str | None = None,
+    events: EventBus | None = None,
+) -> Playlist:
     """Build a Foundry VTT playlist dict from every audio_format file in folder."""
     options = PlaylistOptions(audio_format, foundry_root, volume, foundry_folder)
     return PlaylistAssembler(events).assemble(folder, options)
 
 
-def write_playlist(folder: PathLike, output_filename: str = PLAYLIST_FILENAME, *, audio_format: str = "webm",
-                   foundry_root: PathLike | None = None, volume: float = 0.5, foundry_folder: str | None = None,
-                   events: EventBus | None = None) -> str:
+def write_playlist(
+    folder: PathLike,
+    output_filename: str = PLAYLIST_FILENAME,
+    *,
+    audio_format: str = "webm",
+    foundry_root: PathLike | None = None,
+    volume: float = 0.5,
+    foundry_folder: str | None = None,
+    events: EventBus | None = None,
+) -> str:
     """Write playlist.json into folder and return its path."""
     options = PlaylistOptions(audio_format, foundry_root, volume, foundry_folder)
     return PlaylistWriter(JsonFileSink(output_filename), events).write(folder, options)

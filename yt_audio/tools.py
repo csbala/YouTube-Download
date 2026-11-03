@@ -4,6 +4,7 @@ Patterns:
 - Chain of Responsibility: each ToolLookup tries one place and otherwise passes the search to the next.
 - Proxy: CachingToolLocator stands in for a ToolLocator and runs each lookup only once.
 """
+
 from __future__ import annotations
 
 import functools

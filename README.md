@@ -143,11 +143,13 @@ yt_audio/
 pip install -r requirements-dev.txt
 pytest              # unit + integration, no internet needed
 pytest -m e2e       # real YouTube downloads
-ruff check .        # lint
+ruff format .       # format the code
+ruff check .        # lint, including complexity (max 10) and security checks
 mypy                # strict type check of yt_audio
+pip-audit -r requirements.txt   # known vulnerabilities in dependencies
 ```
 
-See [tests/README.md](tests/README.md) for how the suite is organised. GitHub Actions runs ruff, mypy, and unit and integration tests on Windows and Linux on every push.
+See [tests/README.md](tests/README.md) for how the suite is organised. GitHub Actions runs all four checks, plus unit and integration tests on Windows and Linux, on every push.
 
 ## License
 

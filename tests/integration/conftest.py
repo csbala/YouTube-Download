@@ -27,8 +27,19 @@ def media_dir(tmp_path_factory, ffmpeg_dir):
     folder = tmp_path_factory.mktemp("media")
     ffmpeg = shutil.which("ffmpeg", path=ffmpeg_dir)
     subprocess.run(
-        [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
-         "-c:a", "libopus", str(folder / "tone.webm")],
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-c:a",
+            "libopus",
+            str(folder / "tone.webm"),
+        ],
         check=True,
     )
     return folder
@@ -70,6 +81,8 @@ def run_cli(tmp_path):
 
     def run(*args):
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-        return subprocess.run([sys.executable, str(script), *map(str, args)],
-                              capture_output=True, text=True, encoding="utf-8", env=env, timeout=120)
+        return subprocess.run(
+            [sys.executable, str(script), *map(str, args)], capture_output=True, text=True, encoding="utf-8", env=env, timeout=120
+        )
+
     return run

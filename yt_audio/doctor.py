@@ -3,6 +3,7 @@
 Pattern: Template Method. SetupCheck.run() is the fixed skeleton (probe the machine, look for a
 problem, otherwise describe what's fine); each check fills in those steps.
 """
+
 from __future__ import annotations
 
 import importlib.metadata
@@ -26,7 +27,7 @@ Finding = TypeVar("Finding")
 
 class CheckStatus(Enum):
     OK = "OK"
-    WARN = "WARN"        # works, but risky
+    WARN = "WARN"  # works, but risky
     MISSING = "MISSING"  # blocks a download
 
 
@@ -80,8 +81,10 @@ class YtDlpVersionCheck(SetupCheck[str | None]):
         if finding is None:
             return CheckResult(CheckStatus.MISSING, f"yt-dlp is not installed for this Python. Fix: {pip_upgrade_command()}")
         if version_tuple(finding) < version_tuple(MIN_YT_DLP_VERSION):
-            return CheckResult(CheckStatus.MISSING, f"yt-dlp {finding} is too old (this script needs {MIN_YT_DLP_VERSION} or newer). "
-                                                    f"Fix: {pip_upgrade_command()}")
+            return CheckResult(
+                CheckStatus.MISSING,
+                f"yt-dlp {finding} is too old (this script needs {MIN_YT_DLP_VERSION} or newer). Fix: {pip_upgrade_command()}",
+            )
         return None
 
     def describe_ok(self, finding: str | None) -> str:
@@ -98,8 +101,11 @@ class ChallengeSolverCheck(SetupCheck[bool]):
     def find_problem(self, finding: bool) -> CheckResult | None:
         if finding:
             return None
-        return CheckResult(CheckStatus.WARN, "yt-dlp-ejs is not installed, so the YouTube challenge solver is fetched from GitHub "
-                                             f"on every run. Fix: {pip_upgrade_command()}")
+        return CheckResult(
+            CheckStatus.WARN,
+            "yt-dlp-ejs is not installed, so the YouTube challenge solver is fetched from GitHub "
+            f"on every run. Fix: {pip_upgrade_command()}",
+        )
 
     def describe_ok(self, finding: bool) -> str:
         return "yt-dlp-ejs (YouTube challenge solver)"
@@ -115,8 +121,10 @@ class NodeCheck(SetupCheck[str | None]):
     def find_problem(self, finding: str | None) -> CheckResult | None:
         if finding:
             return None
-        return CheckResult(CheckStatus.MISSING, "Node.js not found (yt-dlp uses it to solve YouTube's JS challenge). "
-                                                "Fix: winget install -e --id OpenJS.NodeJS.LTS")
+        return CheckResult(
+            CheckStatus.MISSING,
+            "Node.js not found (yt-dlp uses it to solve YouTube's JS challenge). Fix: winget install -e --id OpenJS.NodeJS.LTS",
+        )
 
     def describe_ok(self, finding: str | None) -> str:
         return f"Node.js at {finding}"
@@ -132,8 +140,9 @@ class FfmpegCheck(SetupCheck[str | None]):
     def find_problem(self, finding: str | None) -> CheckResult | None:
         if finding:
             return None
-        return CheckResult(CheckStatus.MISSING, "ffmpeg not found (needed for mp3; webm still works without it). "
-                                                "Fix: winget install -e --id Gyan.FFmpeg")
+        return CheckResult(
+            CheckStatus.MISSING, "ffmpeg not found (needed for mp3; webm still works without it). Fix: winget install -e --id Gyan.FFmpeg"
+        )
 
     def describe_ok(self, finding: str | None) -> str:
         return f"ffmpeg in {finding}"
@@ -162,16 +171,25 @@ class CookiesCheck(SetupCheck[CookiesFinding]):
 
     def find_problem(self, finding: CookiesFinding) -> CheckResult | None:
         if not finding.exists:
-            return CheckResult(CheckStatus.WARN, f"cookies.txt not found at {self._cookies_file}. Public videos usually work; "
-                                                 "age-restricted ones and 'confirm you're not a bot' blocks will fail. "
-                                                 "Fix: export YouTube cookies with the 'Get cookies.txt LOCALLY' browser extension "
-                                                 "and save them as cookies.txt next to downloader.py.")
+            return CheckResult(
+                CheckStatus.WARN,
+                f"cookies.txt not found at {self._cookies_file}. Public videos usually work; "
+                "age-restricted ones and 'confirm you're not a bot' blocks will fail. "
+                "Fix: export YouTube cookies with the 'Get cookies.txt LOCALLY' browser extension "
+                "and save them as cookies.txt next to downloader.py.",
+            )
         if not finding.is_netscape_format:
-            return CheckResult(CheckStatus.WARN, "cookies.txt isn't in Netscape format (its first line should mention "
-                                                 "'HTTP Cookie File'). Re-export it with 'Get cookies.txt LOCALLY'.")
+            return CheckResult(
+                CheckStatus.WARN,
+                "cookies.txt isn't in Netscape format (its first line should mention "
+                "'HTTP Cookie File'). Re-export it with 'Get cookies.txt LOCALLY'.",
+            )
         if finding.age_days > COOKIE_MAX_AGE_DAYS:
-            return CheckResult(CheckStatus.WARN, f"cookies.txt is {finding.age_days} days old and may have expired. "
-                                                 "Re-export it if downloads fail with a sign-in or bot error.")
+            return CheckResult(
+                CheckStatus.WARN,
+                f"cookies.txt is {finding.age_days} days old and may have expired. "
+                "Re-export it if downloads fail with a sign-in or bot error.",
+            )
         return None
 
     def describe_ok(self, finding: CookiesFinding) -> str:

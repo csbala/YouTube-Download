@@ -2,6 +2,7 @@
 
 Pattern: Iterator. iter_folder_and_ancestors() walks up from a folder to the drive root.
 """
+
 from __future__ import annotations
 
 import os

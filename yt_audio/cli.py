@@ -3,6 +3,7 @@
 Pattern: Command. Each subcommand is an object that declares its own arguments (configure) and runs
 itself (execute). main() only parses and dispatches, so adding a subcommand means adding a class.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,21 +27,21 @@ from .targets import FoundryPlaylistExporter, NoPlaylistExporter, PlaylistExport
 
 class ExitCode(IntEnum):
     SUCCESS = 0
-    SOME_LINKS_FAILED = 1   # also: doctor found something blocking
-    COULD_NOT_RUN = 2       # bad arguments, setup error, or playlist.json couldn't be written
+    SOME_LINKS_FAILED = 1  # also: doctor found something blocking
+    COULD_NOT_RUN = 2  # bad arguments, setup error, or playlist.json couldn't be written
 
 
 @dataclass(frozen=True)
 class Services:
     """What the commands call into. Tests swap these for recorders."""
+
     download_audio: Callable[..., download.BatchResult]
     write_playlist: Callable[..., Any]
     diagnose: Callable[[], list[CheckResult]]
 
 
 def default_services() -> Services:
-    return Services(download_audio=download.download_audio, write_playlist=playlist.write_playlist,
-                    diagnose=doctor.diagnose)
+    return Services(download_audio=download.download_audio, write_playlist=playlist.write_playlist, diagnose=doctor.diagnose)
 
 
 def parse_volume(text: str) -> float:
@@ -61,8 +62,7 @@ def add_playlist_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def playlist_options_from(args: argparse.Namespace) -> PlaylistOptions:
-    return PlaylistOptions(audio_format=args.format, foundry_root=args.foundry_root, volume=args.volume,
-                           foundry_folder=args.foundry_folder)
+    return PlaylistOptions(audio_format=args.format, foundry_root=args.foundry_root, volume=args.volume, foundry_folder=args.foundry_folder)
 
 
 def export_playlist_reporting_errors(exporter: PlaylistExporter, folder: str, options: PlaylistOptions) -> bool:
@@ -93,12 +93,26 @@ class DownloadCommand(CliCommand):
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("folder", help="Folder to download into")
         parser.add_argument("urls", nargs="*", help="YouTube links. Default: read them from --links")
-        parser.add_argument("--links", default=get_settings().links_file, help="File of links used when no URLs are given (default: links.txt)")
-        parser.add_argument("--format", choices=FORMAT_NAMES, default="webm", help="webm (default, Foundry VTT) or mp3 (Roll20 and most other tools; needs ffmpeg)")
+        parser.add_argument(
+            "--links", default=get_settings().links_file, help="File of links used when no URLs are given (default: links.txt)"
+        )
+        parser.add_argument(
+            "--format",
+            choices=FORMAT_NAMES,
+            default="webm",
+            help="webm (default, Foundry VTT) or mp3 (Roll20 and most other tools; needs ffmpeg)",
+        )
         parser.add_argument("--suffix", default="", help='Text added after each title, e.g. " [EXTENDED]"')
-        parser.add_argument("--allow-playlists", action="store_true", help="Download whole YouTube playlists instead of only the linked video")
+        parser.add_argument(
+            "--allow-playlists", action="store_true", help="Download whole YouTube playlists instead of only the linked video"
+        )
         parser.add_argument("--archive", action="store_true", help="Skip videos already downloaded into this folder on earlier runs")
-        parser.add_argument("--playlist-json", action=argparse.BooleanOptionalAction, default=None, help="Write playlist.json (default: on for webm, off for mp3)")
+        parser.add_argument(
+            "--playlist-json",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help="Write playlist.json (default: on for webm, off for mp3)",
+        )
         add_playlist_arguments(parser)
 
     def execute(self, args: argparse.Namespace, services: Services) -> ExitCode:
@@ -112,8 +126,13 @@ class DownloadCommand(CliCommand):
         target = VttTarget.for_format(args.format)
         try:
             files, failed_links = services.download_audio(
-                links, args.folder, target.create_audio_format().name,
-                suffix=args.suffix, allow_playlists=args.allow_playlists, archive=args.archive)
+                links,
+                args.folder,
+                target.create_audio_format().name,
+                suffix=args.suffix,
+                allow_playlists=args.allow_playlists,
+                archive=args.archive,
+            )
         except RuntimeError as error:
             print(f"Error: {error}")
             return ExitCode.COULD_NOT_RUN

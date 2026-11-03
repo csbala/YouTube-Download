@@ -3,6 +3,7 @@
 Pattern: Decorator. ErrorTranslatingClient wraps any MediaClient and turns the errors yt-dlp and the
 filesystem raise into a LinkFailed result, so the batch loop never needs try/except.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterator

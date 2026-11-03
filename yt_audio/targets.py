@@ -4,6 +4,7 @@ Pattern: Abstract Factory. Each VttTarget creates a family of products that belo
 format that tabletop plays, and the playlist exporter it needs. Foundry gets webm plus playlist.json;
 Roll20 gets mp3 and no playlist. VttTarget.for_format() is the factory method that picks one.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -59,6 +60,7 @@ class FoundryTarget(VttTarget):
 
 class Roll20Target(VttTarget):
     """Roll20's jukebox takes mp3 files dragged in by hand, so there's no playlist to write."""
+
     format_name = "mp3"
 
     def create_playlist_exporter(self, write_playlist: WritePlaylist) -> PlaylistExporter:

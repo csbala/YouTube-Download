@@ -9,6 +9,7 @@ from yt_audio.ydl_options import YdlOptionsDirector
 
 class FakeYoutubeDL:
     """Stands in for yt_dlp.YoutubeDL. `script` maps each URL to an info dict, or to an exception to raise."""
+
     script = {}
 
     def __init__(self, opts):
@@ -140,13 +141,17 @@ def test_ownership_registry_tells_new_repeated_and_clashing_files_apart():
     assert registry.claim("other.webm", "id-b") is Claim.NEW_FILE
 
 
-@pytest.mark.parametrize(("outcome", "failed", "description"), [
-    (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"]), False, "https://a"),
-    (LinkOutcome("https://a", empty_result_is_failure=False), False, "https://a"),
-    (LinkOutcome("https://a", empty_result_is_failure=True), True, "https://a"),
-    (LinkOutcome.fetch_failed("https://a"), True, "https://a"),
-    (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"], problems=["x", "y"]), True, "https://a (x; y)"),
-], ids=["downloaded", "nothing-new-single", "nothing-new-playlist", "fetch-failed", "problems"])
+@pytest.mark.parametrize(
+    ("outcome", "failed", "description"),
+    [
+        (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"]), False, "https://a"),
+        (LinkOutcome("https://a", empty_result_is_failure=False), False, "https://a"),
+        (LinkOutcome("https://a", empty_result_is_failure=True), True, "https://a"),
+        (LinkOutcome.fetch_failed("https://a"), True, "https://a"),
+        (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"], problems=["x", "y"]), True, "https://a (x; y)"),
+    ],
+    ids=["downloaded", "nothing-new-single", "nothing-new-playlist", "fetch-failed", "problems"],
+)
 def test_link_outcome_decides_failure_and_describes_it(outcome, failed, description):
     assert outcome.failed is failed
     assert outcome.describe_failure() == description

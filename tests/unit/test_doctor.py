@@ -27,11 +27,14 @@ def test_doctor_all_ready_exits_0(ready, capsys):
     assert "secret-session-value" not in output
 
 
-@pytest.mark.parametrize(("version", "expected"), [
-    ("2025.11.12", "[OK] yt-dlp"),
-    ("2025.10.22", "[MISSING] yt-dlp 2025.10.22 is too old"),
-    ("2025.11.12.232920", "[OK] yt-dlp"),
-])
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("2025.11.12", "[OK] yt-dlp"),
+        ("2025.10.22", "[MISSING] yt-dlp 2025.10.22 is too old"),
+        ("2025.11.12.232920", "[OK] yt-dlp"),
+    ],
+)
 def test_doctor_checks_yt_dlp_version(ready, monkeypatch, capsys, version, expected):
     monkeypatch.setattr(importlib.metadata, "version", lambda name: version)
 
@@ -43,6 +46,7 @@ def test_doctor_checks_yt_dlp_version(ready, monkeypatch, capsys, version, expec
 def test_doctor_yt_dlp_not_installed_blocks(ready, monkeypatch, capsys):
     def not_installed(name):
         raise importlib.metadata.PackageNotFoundError(name)
+
     monkeypatch.setattr(importlib.metadata, "version", not_installed)
 
     assert main(["doctor"]) == 1

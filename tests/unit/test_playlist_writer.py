@@ -26,8 +26,20 @@ def test_clones_do_not_share_mutable_state_with_the_prototype():
 def test_foundry_sound_keeps_foundrys_key_order():
     sound = FOUNDRY_SOUND.clone(name="a", sort=3)
 
-    assert list(sound) == ["name", "path", "channel", "repeat", "fade", "description", "volume", "_id",
-                           "playing", "pausedTime", "sort", "flags"]
+    assert list(sound) == [
+        "name",
+        "path",
+        "channel",
+        "repeat",
+        "fade",
+        "description",
+        "volume",
+        "_id",
+        "playing",
+        "pausedTime",
+        "sort",
+        "flags",
+    ]
     assert sound["sort"] == 3
 
 

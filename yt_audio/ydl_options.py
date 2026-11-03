@@ -5,6 +5,7 @@ Patterns:
 - Director: YdlOptionsDirector knows which steps a download needs and in what order, and reports
   missing optional tools on the way.
 """
+
 from __future__ import annotations
 
 import os
@@ -49,9 +50,12 @@ class YdlOptionsBuilder:
 
     def with_output_template(self, folder: str, title_suffix: str) -> YdlOptionsBuilder:
         self._args += [
-            "-P", folder,  # Kept out of -o, because --trim-filenames would trim the folder path too
-            "-o", f"%(title)s{title_suffix.replace('%', '%%')}.%(ext)s",  # % is special in templates
-            "--trim-filenames", str(max_title_length(folder)),
+            "-P",
+            folder,  # Kept out of -o, because --trim-filenames would trim the folder path too
+            "-o",
+            f"%(title)s{title_suffix.replace('%', '%%')}.%(ext)s",  # % is special in templates
+            "--trim-filenames",
+            str(max_title_length(folder)),
         ]
         return self
 
@@ -97,8 +101,9 @@ class YdlOptionsBuilder:
 
 
 class YdlOptionsDirector:
-    def __init__(self, tool_locator: ToolLocator | None = None, events: EventBus | None = None,
-                 settings: AppSettings | None = None) -> None:
+    def __init__(
+        self, tool_locator: ToolLocator | None = None, events: EventBus | None = None, settings: AppSettings | None = None
+    ) -> None:
         self._tools = tool_locator or tools.default_tool_locator()
         self._events = events or console_event_bus()
         self._settings = settings
@@ -108,12 +113,14 @@ class YdlOptionsDirector:
         node_path = self._tools.node_path()
         if not node_path:
             self._events.notify(NodeMissing())
-        builder = (YdlOptionsBuilder()
-                   .with_output_template(request.folder, request.title_suffix)
-                   .with_challenge_solver(self._tools.ejs_installed())
-                   .with_playlist_policy(request.allow_playlists)
-                   .with_js_runtime(node_path)
-                   .with_audio_format(request.audio_format, self._tools.ffmpeg_dir()))
+        builder = (
+            YdlOptionsBuilder()
+            .with_output_template(request.folder, request.title_suffix)
+            .with_challenge_solver(self._tools.ejs_installed())
+            .with_playlist_policy(request.allow_playlists)
+            .with_js_runtime(node_path)
+            .with_audio_format(request.audio_format, self._tools.ffmpeg_dir())
+        )
 
         cookies_file: str | None = settings.cookies_file
         if not os.path.isfile(settings.cookies_file):

@@ -32,10 +32,13 @@ def test_webm_needs_no_ffmpeg():
     assert WebmFormat().ydl_args(ffmpeg_dir=None) == ["-f", "bestaudio[ext=webm]/bestaudio"]
 
 
-@pytest.mark.parametrize(("format_name", "target", "exporter"), [
-    ("webm", FoundryTarget, FoundryPlaylistExporter),
-    ("mp3", Roll20Target, NoPlaylistExporter),
-])
+@pytest.mark.parametrize(
+    ("format_name", "target", "exporter"),
+    [
+        ("webm", FoundryTarget, FoundryPlaylistExporter),
+        ("mp3", Roll20Target, NoPlaylistExporter),
+    ],
+)
 def test_each_target_creates_a_matching_family(format_name, target, exporter):
     vtt = VttTarget.for_format(format_name)
 

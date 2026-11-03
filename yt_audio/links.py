@@ -2,6 +2,7 @@
 
 Pattern: Iterator. iter_links() yields links lazily, one line at a time.
 """
+
 from __future__ import annotations
 
 import os

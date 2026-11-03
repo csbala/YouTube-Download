@@ -12,7 +12,7 @@ on:
 
 jobs:
   lint:
-    name: ruff + mypy
+    name: ruff + mypy + pip-audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,8 +22,11 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - run: ruff format --check .
       - run: ruff check .
       - run: mypy
+      - name: Check dependencies for known vulnerabilities
+        run: pip-audit -r requirements.txt
 
   test:
     name: unit + integration (${{ matrix.os }}, Python ${{ matrix.python }})
