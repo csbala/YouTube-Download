@@ -34,10 +34,11 @@ All scripts live in `.claude/skills/download-music/scripts/` and run with PowerS
 powershell -ExecutionPolicy Bypass -File .claude/skills/download-music/scripts/preflight.ps1
 ```
 
-Each line is `[OK]`, `[WARN]` or `[MISSING]`, with the fix included. The last line gives `PYTHON=<path>`.
+Each line is `[OK]`, `[WARN]` or `[MISSING]`, with the fix included. Preflight checks Python itself; the other lines come from `downloader.py doctor`. The last line gives `PYTHON=<path>`.
 
 - **All OK:** go straight to step 3. Don't make the user read a checklist.
-- **[MISSING]:** tell the user what's missing, in one or two sentences, and **ask before installing anything**: "Listen, ya don't got Python on here. Want me to install it? Takes a minute." When they say yes, run the fix command from the preflight line, then run preflight again to confirm. After a fresh Python install, install yt-dlp with that Python (`"<path>" -m pip install -U yt-dlp`), because pip may not be on PATH yet.
+- **[MISSING]:** tell the user what's missing, in one or two sentences, and **ask before installing anything**: "Listen, ya don't got Python on here. Want me to install it? Takes a minute." When they say yes, run the fix command from the preflight line, then run preflight again to confirm. After a fresh Python install, install yt-dlp with that Python (`"<path>" -m pip install -U "yt-dlp[default]"`), because pip may not be on PATH yet.
+- **[WARN] about yt-dlp-ejs:** downloads still work (the solver is fetched from GitHub instead). Mention the fix in one line and carry on.
 - **[WARN] about cookies:** mention it in one line and carry on. Public videos usually work without cookies. Only push the issue if the download actually fails with a sign-in or bot error.
 
 ### 3. Download
@@ -52,7 +53,7 @@ Give it a timeout of at least 5 minutes, since long tracks take a while. The scr
 
 - runs `python downloader.py download <folder> <links...> --format <format>` (the user's `links.txt` is never touched);
 - prints yt-dlp's output and downloader.py's own `Summary:` / `FAILED:` lines, then a `===== SUMMARY =====` block with `NEW FILE`, `ALREADY HAD` and `ERROR` lines;
-- exits 0 when every link produced a file, 1 when something failed, and 2 when it couldn't start.
+- exits with downloader.py's own code: 0 when every link downloaded, 1 when something failed (a `FAILED:` line says which link, and for a playlist how many items), and 2 when it couldn't start or couldn't write `playlist.json`.
 
 ### 4. Report back
 
@@ -69,12 +70,14 @@ Match the yt-dlp `ERROR:` text and help out. Retry once by yourself when the fix
 | Error text contains | What it means | What to do |
 |---|---|---|
 | `Sign in to confirm you're not a bot` / `Sign in to confirm your age` | YouTube wants a logged-in session | The user needs fresh cookies. Have them export `cookies.txt` for youtube.com with the "Get cookies.txt LOCALLY" extension while logged in, save it over `cookies.txt` in the repo root, then retry. |
-| `HTTP Error 403`, `Requested format is not available`, `Unable to extract`, `nsig`, `n challenge` | YouTube changed something and yt-dlp is behind | Run `"<python>" -m pip install -U yt-dlp`, then retry once. |
+| `HTTP Error 403`, `Requested format is not available`, `Unable to extract`, `nsig`, `n challenge` | YouTube changed something and yt-dlp is behind | Run `"<python>" -m pip install -U "yt-dlp[default]"`, then retry once. |
 | `no such option: --js-runtimes` or `--remote-components` | yt-dlp is too old for this repo's script | Upgrade yt-dlp as above. |
 | `Video unavailable`, `Private video`, `This video has been removed` | The video itself is the problem | Nothing to fix locally. Tell the user and ask for another link. |
 | `not available in your country` | Region lock | Tell the user. Nothing to fix locally. |
 | `node` / `JavaScript runtime` errors | Node.js missing or broken (downloader.py looks on PATH, then in `C:\Program Files\nodejs`) | Offer `winget install -e --id OpenJS.NodeJS.LTS`. |
 | `ffmpeg is required for mp3` / `ffmpeg not found` / `Postprocessing` errors | ffmpeg is missing, so the mp3 conversion can't run | Offer `winget install -e --id Gyan.FFmpeg`. downloader.py finds it even before the shell restarts. |
+| `has the same file name as an earlier video` | Two different videos have the same title, so the second would overwrite the first | Download that link again on its own with `python downloader.py download "<folder>" "<link>" --format mp3 --suffix " (2)"`. |
+| `couldn't write playlist.json` | The folder isn't inside Foundry's `Data` folder, or the `--foundry-root` is wrong | The audio files are fine. Explain, and rerun `python downloader.py playlist "<folder>" --foundry-root "<Data folder>"` if they need the playlist. |
 | Roll20 says "You can't upload files of this type" | The file is webm, not mp3 | Download it again with `-Format mp3`. |
 | `[Errno 13]` / `Permission denied` | Folder is locked, or a file is open in a player | Ask the user to close the player or pick another folder. |
 

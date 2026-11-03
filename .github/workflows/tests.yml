@@ -11,18 +11,36 @@ on:
         default: false
 
 jobs:
+  lint:
+    name: ruff + mypy + pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"  # the oldest supported version, so newer syntax gets caught
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff format --check .
+      - run: ruff check .
+      - run: mypy
+      - name: Check dependencies for known vulnerabilities
+        run: pip-audit -r requirements.txt
+
   test:
-    name: unit + integration (${{ matrix.os }})
+    name: unit + integration (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - name: Install ffmpeg (Linux)
@@ -33,7 +51,7 @@ jobs:
         run: choco install ffmpeg -y --no-progress
       - run: pip install -r requirements-dev.txt
       - name: Run tests
-        run: pytest -m "unit or integration" --cov=downloader --cov-report=term-missing --cov-fail-under=90
+        run: pytest -m "unit or integration" --cov=yt_audio --cov-report=term-missing --cov-fail-under=90
 
   e2e:
     name: e2e (real YouTube)

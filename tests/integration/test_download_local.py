@@ -2,7 +2,8 @@ import os
 
 import pytest
 
-from downloader import download_audio
+from yt_audio import download_audio
+from yt_audio.ydl_options import max_title_length
 
 
 @pytest.fixture
@@ -30,6 +31,17 @@ def test_download_adds_suffix_to_filename(music_dir, tone_url):
     files, _ = download_audio([tone_url], str(music_dir), "webm", suffix=" [EXTENDED]")
 
     assert os.path.basename(files[0]) == "tone [EXTENDED].webm"
+
+
+def test_download_trims_long_titles_but_not_the_folder(music_dir, tone_url):
+    suffix = " " + "x" * 300
+
+    files, failed = download_audio([tone_url], str(music_dir), "webm", suffix=suffix)
+
+    assert failed == []
+    [path] = files
+    assert os.path.dirname(path) == str(music_dir)
+    assert os.path.basename(path) == ("tone" + suffix)[: max_title_length(music_dir)] + ".webm"
 
 
 def test_download_archive_skips_second_run(music_dir, tone_url):

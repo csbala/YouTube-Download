@@ -2,9 +2,6 @@
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 
-# yt-dlp release that added --js-runtimes / --remote-components, which downloader.py uses.
-$MinYtDlpVersion = '2025.11.12'
-
 function Find-Python {
     # Returns the full path of a working python.exe, or $null.
     # Skips the Windows Store "python" stub, which prints "Python was not found" and exits 49.
@@ -23,21 +20,5 @@ function Find-Python {
         $real = & $exe -c "import sys; print(sys.executable)" 2>$null
         if ($LASTEXITCODE -eq 0 -and $real) { return ($real | Select-Object -First 1).Trim() }
     }
-    return $null
-}
-
-function Find-FFmpeg {
-    # Same lookup as downloader.py's find_ffmpeg(): PATH first, then winget's package folder.
-    $cmd = Get-Command ffmpeg -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    $hit = Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Gyan.FFmpeg*\*\bin\ffmpeg.exe" -ErrorAction SilentlyContinue |
-           Select-Object -First 1
-    if ($hit) { return $hit.FullName }
-    return $null
-}
-
-function Get-YtDlpVersion([string]$Python) {
-    $v = & $Python -m yt_dlp --version 2>$null
-    if ($LASTEXITCODE -eq 0 -and $v) { return ($v | Select-Object -First 1).Trim() }
     return $null
 }

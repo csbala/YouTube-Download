@@ -8,14 +8,14 @@ import threading
 
 import pytest
 
-import downloader
+from yt_audio.tools import SystemToolLocator
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @pytest.fixture(scope="session")
 def ffmpeg_dir():
-    found = downloader.find_ffmpeg()
+    found = SystemToolLocator().ffmpeg_dir()
     if not found:
         pytest.skip("ffmpeg is not installed")
     return found
@@ -27,8 +27,19 @@ def media_dir(tmp_path_factory, ffmpeg_dir):
     folder = tmp_path_factory.mktemp("media")
     ffmpeg = shutil.which("ffmpeg", path=ffmpeg_dir)
     subprocess.run(
-        [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
-         "-c:a", "libopus", str(folder / "tone.webm")],
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-c:a",
+            "libopus",
+            str(folder / "tone.webm"),
+        ],
         check=True,
     )
     return folder
@@ -62,12 +73,16 @@ def tone_url(media_server):
 @pytest.fixture
 def run_cli(tmp_path):
     """Run downloader.py as a real subprocess, from a copy in tmp_path so the repo's cookies.txt and links.txt are never used."""
-    script = tmp_path / "app" / "downloader.py"
-    script.parent.mkdir()
+    app = tmp_path / "app"
+    app.mkdir()
+    script = app / "downloader.py"
     shutil.copy(os.path.join(REPO_ROOT, "downloader.py"), script)
+    shutil.copytree(os.path.join(REPO_ROOT, "yt_audio"), app / "yt_audio", ignore=shutil.ignore_patterns("__pycache__"))
 
     def run(*args):
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-        return subprocess.run([sys.executable, str(script), *map(str, args)],
-                              capture_output=True, text=True, encoding="utf-8", env=env, timeout=120)
+        return subprocess.run(
+            [sys.executable, str(script), *map(str, args)], capture_output=True, text=True, encoding="utf-8", env=env, timeout=120
+        )
+
     return run

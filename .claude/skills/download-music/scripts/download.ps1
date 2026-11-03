@@ -3,7 +3,7 @@
 # Usage: download.ps1 -Url <link>[,<link>...] [-Folder <path>] [-Format mp3|webm]
 # mp3 is the default because Roll20 only accepts mp3; webm is the repo's original Foundry VTT format.
 # Ends with a summary block (RESULT / NEW FILE / ALREADY HAD / ERROR lines).
-# Exit code: 0 = every link produced a file, 1 = at least one failed, 2 = couldn't start.
+# Exit code: downloader.py's (0 = every link downloaded, 1 = at least one failed, 2 = couldn't start).
 
 param(
     [Parameter(Mandatory = $true)][string[]]$Url,
@@ -36,6 +36,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 
 $log = @()
+$code = 2
 try {
     Push-Location $RepoRoot
     & $py downloader.py download $Folder @Url --format $Format 2>&1 | ForEach-Object {
@@ -43,6 +44,7 @@ try {
         $log += $line
         Write-Output $line
     }
+    $code = $LASTEXITCODE
 } finally {
     Pop-Location
 }
@@ -63,5 +65,5 @@ if ($new | Where-Object { $_.Extension -ne ".$Format" }) {
     Write-Output "NOTE: some files aren't .$Format (a conversion may have failed)."
 }
 
-if ($errors.Count -gt 0 -or ($new.Count + $already.Count) -lt $Url.Count) { exit 1 }
-exit 0
+# downloader.py's own exit code: 0 = all links downloaded, 1 = some failed, 2 = couldn't start or write playlist.json
+exit $code
