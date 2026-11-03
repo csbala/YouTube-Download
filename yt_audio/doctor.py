@@ -9,9 +9,9 @@ from __future__ import annotations
 import importlib.metadata
 import os
 import sys
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
@@ -167,7 +167,7 @@ class CookiesCheck(SetupCheck[CookiesFinding]):
             return CookiesFinding(exists=False)
         with open(self._cookies_file, encoding="utf-8", errors="replace") as file:
             header = file.readline()
-        age_days = int((datetime.now().timestamp() - os.path.getmtime(self._cookies_file)) / SECONDS_PER_DAY)
+        age_days = int((time.time() - os.path.getmtime(self._cookies_file)) / SECONDS_PER_DAY)
         return CookiesFinding(exists=True, is_netscape_format="HTTP Cookie File" in header, age_days=age_days)
 
     def find_problem(self, finding: CookiesFinding) -> CheckResult | None:
