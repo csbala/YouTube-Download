@@ -57,8 +57,8 @@ class ErrorTranslatingClient:
 
 
 @contextmanager
-def open_ydl_client(ydl_options: dict[str, Any]) -> Iterator[MediaClient]:
+def open_ytdlp_client(ytdlp_options: dict[str, Any]) -> Iterator[MediaClient]:
     import yt_dlp
 
-    with yt_dlp.YoutubeDL(ydl_options) as youtube_dl:
+    with yt_dlp.YoutubeDL(ytdlp_options) as youtube_dl:
         yield ErrorTranslatingClient(YtDlpClient(youtube_dl))

@@ -18,7 +18,6 @@ from typing import Any
 # The folder holding downloader.py and the yt_audio package. cookies.txt and links.txt live here.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-FOUNDRY_CORE_VERSION = "12.331"
 MIN_YT_DLP_VERSION = "2025.11.12"  # First release with --js-runtimes and --remote-components
 
 MAX_TITLE_LENGTH = 150

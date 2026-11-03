@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from yt_audio import tools
@@ -23,27 +21,6 @@ def isolate_user_files(tmp_path):
     """Never read the real cookies.txt or links.txt from the repo during tests."""
     with override_settings(cookies_file=str(tmp_path / "no-cookies.txt"), links_file=str(tmp_path / "no-links.txt")):
         yield
-
-
-@pytest.fixture
-def foundry_data_dir(tmp_path):
-    """An empty Foundry VTT Data folder: <tmp>/FoundryVTT/Data."""
-    data = tmp_path / "FoundryVTT" / "Data"
-    data.mkdir(parents=True)
-    return data
-
-
-@pytest.fixture
-def make_audio_files():
-    """Factory: create empty files with the given names in a folder and return the folder."""
-
-    def make(folder, *names):
-        os.makedirs(folder, exist_ok=True)
-        for name in names:
-            (folder / name).write_bytes(b"")
-        return folder
-
-    return make
 
 
 class FakeToolLocator:

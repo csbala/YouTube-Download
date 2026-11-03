@@ -52,24 +52,6 @@ class LinkDone(Event):
     link: str
 
 
-@dataclass(frozen=True)
-class FoundryRootGuessed(Event):
-    folder: str
-    assumed_folder: str
-
-
-@dataclass(frozen=True)
-class PlaylistEmpty(Event):
-    folder: str
-    extension: str
-
-
-@dataclass(frozen=True)
-class PlaylistWritten(Event):
-    track_count: int
-    output_path: str
-
-
 class EventListener(Protocol):
     def on_event(self, event: Event) -> None: ...
 
@@ -96,7 +78,7 @@ class ConsoleReporter:
             print(message)
 
     @staticmethod
-    def describe(event: Event) -> str | None:  # noqa: C901 - one flat case per event; a lookup table would lose mypy's checks
+    def describe(event: Event) -> str | None:
         match event:
             case NodeMissing():
                 return "Warning: Node.js not found. YouTube downloads may fail. Install it with: winget install -e --id OpenJS.NodeJS.LTS"
@@ -117,15 +99,6 @@ class ConsoleReporter:
                 )
             case LinkDone(link):
                 return f"Done: {link}"
-            case FoundryRootGuessed(folder, assumed_folder):
-                return (
-                    f"Warning: {folder} isn't inside a Foundry Data folder, so track paths assume {assumed_folder}/. "
-                    f"Use --foundry-root to set it."
-                )
-            case PlaylistEmpty(folder, extension):
-                return f"No {extension} files found in {folder}. Playlist will be empty."
-            case PlaylistWritten(track_count, output_path):
-                return f"Playlist with {track_count} tracks written to: {output_path}"
         return None
 
 

@@ -1,4 +1,4 @@
-"""The command line: `download`, `playlist` and `doctor`.
+"""The command line: `download` and `doctor`.
 
 Pattern: Command. Each subcommand is an object that declares its own arguments (configure) and runs
 itself (execute). main() only parses and dispatches, so adding a subcommand means adding a class.
@@ -13,66 +13,36 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from . import doctor, download
 from .doctor import CheckResult
-from .formats import FORMAT_NAMES
-from .foundry import playlist
-from .foundry.playlist import PlaylistOptions
+from .download import BatchResult
+from .formats import AUDIO_FORMATS, DEFAULT_FORMAT, FORMAT_NAMES
 from .links import read_links
 from .settings import get_settings
-from .targets import FoundryPlaylistExporter, NoPlaylistExporter, PlaylistExporter, VttTarget
 
 
 class ExitCode(IntEnum):
     SUCCESS = 0
     SOME_LINKS_FAILED = 1  # also: doctor found something blocking
-    COULD_NOT_RUN = 2  # bad arguments, setup error, or playlist.json couldn't be written
+    COULD_NOT_RUN = 2  # bad arguments or a setup error, such as ffmpeg missing for mp3
 
 
 @dataclass(frozen=True)
 class Services:
     """What the commands call into. Tests swap these for recorders."""
 
-    download_audio: Callable[..., download.BatchResult]
-    write_playlist: Callable[..., Any]
+    download_audio: Callable[..., BatchResult]
     diagnose: Callable[[], list[CheckResult]]
 
 
 def default_services() -> Services:
-    return Services(download_audio=download.download_audio, write_playlist=playlist.write_playlist, diagnose=doctor.diagnose)
+    return Services(download_audio=download.download_audio, diagnose=doctor.diagnose)
 
 
-def parse_volume(text: str) -> float:
-    """argparse type for --volume: a number from 0 to 1."""
-    try:
-        value = float(text)
-    except ValueError:
-        value = None
-    if value is None or not 0 <= value <= 1:
-        raise argparse.ArgumentTypeError(f"must be a number from 0 to 1, not {text}")
-    return value
-
-
-def add_playlist_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--foundry-root", help="Foundry's Data folder. Default: the nearest enclosing folder named Data")
-    parser.add_argument("--foundry-folder", help="ID of the Foundry sidebar folder to import the playlist into")
-    parser.add_argument("--volume", type=parse_volume, default=0.5, help="Track volume from 0 to 1 (default 0.5)")
-
-
-def playlist_options_from(args: argparse.Namespace) -> PlaylistOptions:
-    return PlaylistOptions(audio_format=args.format, foundry_root=args.foundry_root, volume=args.volume, foundry_folder=args.foundry_folder)
-
-
-def export_playlist_reporting_errors(exporter: PlaylistExporter, folder: str, options: PlaylistOptions) -> bool:
-    """Export the playlist, printing an error instead of a traceback. Returns True on success."""
-    try:
-        exporter.export(folder, options)
-        return True
-    except (ValueError, OSError) as error:
-        print(f"Error: couldn't write playlist.json: {error}")
-        return False
+def describe_formats() -> str:
+    return ", ".join(f"{fmt.name} ({fmt.description})" for fmt in AUDIO_FORMATS.values())
 
 
 class CliCommand(ABC):
@@ -88,7 +58,7 @@ class CliCommand(ABC):
 
 class DownloadCommand(CliCommand):
     name = "download"
-    help = "Download audio, then write playlist.json (webm only, by default)"
+    help = "Download the audio of YouTube links into a folder"
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("folder", help="Folder to download into")
@@ -97,81 +67,46 @@ class DownloadCommand(CliCommand):
             "--links", default=get_settings().links_file, help="File of links used when no URLs are given (default: links.txt)"
         )
         parser.add_argument(
-            "--format",
-            choices=FORMAT_NAMES,
-            default="webm",
-            help="webm (default, Foundry VTT) or mp3 (Roll20 and most other tools; needs ffmpeg)",
+            "--format", choices=FORMAT_NAMES, default=DEFAULT_FORMAT, help=f"Audio format (default {DEFAULT_FORMAT}): {describe_formats()}"
         )
         parser.add_argument("--suffix", default="", help='Text added after each title, e.g. " [EXTENDED]"')
         parser.add_argument(
             "--allow-playlists", action="store_true", help="Download whole YouTube playlists instead of only the linked video"
         )
         parser.add_argument("--archive", action="store_true", help="Skip videos already downloaded into this folder on earlier runs")
-        parser.add_argument(
-            "--playlist-json",
-            action=argparse.BooleanOptionalAction,
-            default=None,
-            help="Write playlist.json (default: on for webm, off for mp3)",
-        )
-        add_playlist_arguments(parser)
 
     def execute(self, args: argparse.Namespace, services: Services) -> ExitCode:
-        links = args.urls
-        if not links:
-            if not os.path.isfile(args.links):
-                print(f"Error: no links given and {args.links} not found. Pass URLs as arguments or create the file.")
-                return ExitCode.COULD_NOT_RUN
-            links = read_links(args.links)
+        links = self._links_to_download(args)
+        if links is None:
+            print(f"Error: no links given and {args.links} not found. Pass URLs as arguments or create the file.")
+            return ExitCode.COULD_NOT_RUN
 
-        target = VttTarget.for_format(args.format)
         try:
-            files, failed_links = services.download_audio(
-                links,
-                args.folder,
-                target.create_audio_format().name,
-                suffix=args.suffix,
-                allow_playlists=args.allow_playlists,
-                archive=args.archive,
+            result = services.download_audio(
+                links, args.folder, args.format, suffix=args.suffix, allow_playlists=args.allow_playlists, archive=args.archive
             )
-        except RuntimeError as error:
+        except RuntimeError as error:  # a setup problem, such as ffmpeg missing for mp3
             print(f"Error: {error}")
             return ExitCode.COULD_NOT_RUN
 
-        exporter = self._choose_playlist_exporter(target, args.playlist_json, services)
-        playlist_ok = export_playlist_reporting_errors(exporter, args.folder, playlist_options_from(args))
-
-        print(f"\nSummary: {len(links) - len(failed_links)} of {len(links)} links downloaded ({len(files)} files).")
-        for link in failed_links:
-            print(f"FAILED: {link}")
-        if not playlist_ok:
-            return ExitCode.COULD_NOT_RUN
-        return ExitCode.SOME_LINKS_FAILED if failed_links else ExitCode.SUCCESS
+        self._print_summary(links, result)
+        return ExitCode.SOME_LINKS_FAILED if result.failed_links else ExitCode.SUCCESS
 
     @staticmethod
-    def _choose_playlist_exporter(target: VttTarget, playlist_json: bool | None, services: Services) -> PlaylistExporter:
-        """The target's own exporter, unless --playlist-json / --no-playlist-json says otherwise."""
-        if playlist_json is None:
-            return target.create_playlist_exporter(services.write_playlist)
-        return FoundryPlaylistExporter(services.write_playlist) if playlist_json else NoPlaylistExporter()
+    def _links_to_download(args: argparse.Namespace) -> list[str] | None:
+        """The URLs given on the command line, else the links file's contents. None when there are neither."""
+        if args.urls:
+            return list(args.urls)
+        if os.path.isfile(args.links):
+            return read_links(args.links)
+        return None
 
-
-class PlaylistCommand(CliCommand):
-    name = "playlist"
-    help = "Only write playlist.json from the audio files already in a folder"
-
-    def configure(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("folder", help="Folder holding the audio files")
-        parser.add_argument("--format", choices=FORMAT_NAMES, default="webm", help="Which files to include (default webm)")
-        add_playlist_arguments(parser)
-
-    def execute(self, args: argparse.Namespace, services: Services) -> ExitCode:
-        if not os.path.isdir(args.folder):
-            print(f"Error: folder {args.folder} not found.")
-            return ExitCode.COULD_NOT_RUN
-        exporter = FoundryPlaylistExporter(services.write_playlist)
-        if export_playlist_reporting_errors(exporter, args.folder, playlist_options_from(args)):
-            return ExitCode.SUCCESS
-        return ExitCode.COULD_NOT_RUN
+    @staticmethod
+    def _print_summary(links: list[str], result: BatchResult) -> None:
+        downloaded_count = len(links) - len(result.failed_links)
+        print(f"\nSummary: {downloaded_count} of {len(links)} links downloaded ({len(result.files)} files).")
+        for link in result.failed_links:
+            print(f"FAILED: {link}")
 
 
 class DoctorCommand(CliCommand):
@@ -189,11 +124,11 @@ class DoctorCommand(CliCommand):
         return ExitCode.SOME_LINKS_FAILED if any(result.blocks_download for result in results) else ExitCode.SUCCESS
 
 
-COMMANDS: tuple[CliCommand, ...] = (DownloadCommand(), PlaylistCommand(), DoctorCommand())
+COMMANDS: tuple[CliCommand, ...] = (DownloadCommand(), DoctorCommand())
 
 
 def build_parser(commands: Sequence[CliCommand] = COMMANDS) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="YouTube audio downloader and Foundry VTT playlist generator")
+    parser = argparse.ArgumentParser(description="Download the audio of YouTube videos as mp3 or webm")
     subparsers = parser.add_subparsers(dest="command_name", required=True)
     for command in commands:
         command_parser = subparsers.add_parser(command.name, help=command.help)
@@ -202,15 +137,7 @@ def build_parser(commands: Sequence[CliCommand] = COMMANDS) -> argparse.Argument
     return parser
 
 
-def translate_legacy_arguments(argv: list[str]) -> list[str]:
-    """Old usage: downloader.py --generate FOLDER [--format X] means `download`."""
-    if argv and argv[0] == "--generate":
-        return ["download", *argv[1:]]
-    return argv
-
-
 def main(argv: Sequence[str] | None = None) -> int:
-    arguments = translate_legacy_arguments(list(sys.argv[1:] if argv is None else argv))
-    args = build_parser().parse_args(arguments)
+    args = build_parser().parse_args(sys.argv[1:] if argv is None else argv)
     command: CliCommand = args.command
     return int(command.execute(args, default_services()))

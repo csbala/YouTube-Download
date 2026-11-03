@@ -34,8 +34,6 @@ Most bugs should be caught at the bottom. Write an integration or e2e test only 
 
 ## Shared fixtures (`conftest.py`)
 
-- `foundry_data_dir`: an empty `<tmp>/FoundryVTT/Data`.
-- `make_audio_files(folder, *names)`: creates empty audio files.
 - `fake_tools`: installs a `FakeToolLocator` that pretends Node.js, ffmpeg and yt-dlp-ejs are installed. Set `fake_tools.ffmpeg = None` (or `.node = None`, `.ejs = False`) to simulate a missing one.
 - `recorder` / `recorded_events`: an `EventBus` that records events instead of printing them. Assert with `recorder.of_type(LinkDone)`.
 - `integration/conftest.py`: `media_server` / `tone_url` (the local HTTP server) and `run_cli(*args)` (runs the CLI as a subprocess).

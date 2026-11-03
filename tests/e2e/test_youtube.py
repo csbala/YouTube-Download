@@ -3,7 +3,6 @@
 These use the real repo files, including cookies.txt if present, exactly as a user would.
 """
 
-import json
 import os
 import subprocess
 import sys
@@ -26,32 +25,29 @@ def run(*args, timeout=600):
 
 @pytest.fixture
 def music_dir(tmp_path):
-    return tmp_path / "FoundryVTT" / "Data" / "Music_Import" / "e2e"
+    return tmp_path / "e2e"
 
 
 def audio_files(folder, ext):
     return [f for f in os.listdir(folder) if f.endswith(ext)]
 
 
-def test_youtube_webm_download_with_foundry_playlist(music_dir):
-    result = run(sys.executable, "downloader.py", "download", music_dir, VIDEO_URL)
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    [track] = audio_files(music_dir, ".webm")
-    assert os.path.getsize(music_dir / track) > 100_000
-    playlist = json.loads((music_dir / "playlist.json").read_text(encoding="utf-8"))
-    assert playlist["sounds"][0]["path"].startswith("Music_Import/e2e/")
-
-
-def test_youtube_mp3_download_for_roll20(music_dir):
+def test_youtube_mp3_download(music_dir):
     if SystemToolLocator().ffmpeg_dir() is None:
         pytest.skip("ffmpeg is needed for mp3")
 
-    result = run(sys.executable, "downloader.py", "download", music_dir, VIDEO_URL, "--format", "mp3")
+    result = run(sys.executable, "downloader.py", "download", music_dir, VIDEO_URL)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert len(audio_files(music_dir, ".mp3")) == 1
-    assert not (music_dir / "playlist.json").exists()
+    [track] = audio_files(music_dir, ".mp3")
+    assert os.path.getsize(music_dir / track) > 100_000
+
+
+def test_youtube_webm_download_needs_no_ffmpeg(music_dir):
+    result = run(sys.executable, "downloader.py", "download", music_dir, VIDEO_URL, "--format", "webm")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(audio_files(music_dir, ".webm")) == 1
 
 
 def test_youtube_unavailable_video_exits_1(music_dir):

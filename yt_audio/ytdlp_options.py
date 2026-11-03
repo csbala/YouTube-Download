@@ -1,8 +1,8 @@
 """Turning a download request into yt-dlp options.
 
 Patterns:
-- Builder: YdlOptionsBuilder adds one concern per step, using the same flags the yt-dlp command line takes.
-- Director: YdlOptionsDirector knows which steps a download needs and in what order, and reports
+- Builder: YtDlpOptionsBuilder adds one concern per step, using the same flags the yt-dlp command line takes.
+- Director: YtDlpOptionsDirector knows which steps a download needs and in what order, and reports
   missing optional tools on the way.
 """
 
@@ -20,7 +20,7 @@ from .tools import ToolLocator
 
 ARCHIVE_FILENAME = ".download-archive.txt"
 
-YdlOptions = dict[str, Any]
+YtDlpOptions = dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -43,12 +43,12 @@ def max_title_length(folder: str) -> int:
     return max(MIN_TITLE_LENGTH, min(MAX_TITLE_LENGTH, WINDOWS_PATH_BUDGET - len(os.path.abspath(folder))))
 
 
-class YdlOptionsBuilder:
+class YtDlpOptionsBuilder:
     def __init__(self) -> None:
         self._args: list[str] = []
         self._keep_going_past_broken_entries = False
 
-    def with_output_template(self, folder: str, title_suffix: str) -> YdlOptionsBuilder:
+    def with_output_template(self, folder: str, title_suffix: str) -> YtDlpOptionsBuilder:
         self._args += [
             "-P",
             folder,  # Kept out of -o, because --trim-filenames would trim the folder path too
@@ -59,48 +59,48 @@ class YdlOptionsBuilder:
         ]
         return self
 
-    def with_challenge_solver(self, ejs_installed: bool) -> YdlOptionsBuilder:
+    def with_challenge_solver(self, ejs_installed: bool) -> YtDlpOptionsBuilder:
         if not ejs_installed:
             # Without the yt-dlp-ejs package, fetch YouTube's challenge solver from GitHub on every run
             self._args += ["--remote-components", "ejs:github"]
         return self
 
-    def with_playlist_policy(self, allow_playlists: bool) -> YdlOptionsBuilder:
+    def with_playlist_policy(self, allow_playlists: bool) -> YtDlpOptionsBuilder:
         if not allow_playlists:
             self._args.append("--no-playlist")  # Only the video a link points at, even if it's in a playlist
         self._keep_going_past_broken_entries = allow_playlists
         return self
 
-    def with_js_runtime(self, node_path: str | None) -> YdlOptionsBuilder:
+    def with_js_runtime(self, node_path: str | None) -> YtDlpOptionsBuilder:
         if node_path:
             self._args += ["--js-runtimes", f"node:{node_path}"]
         return self
 
-    def with_audio_format(self, audio_format: AudioFormat, ffmpeg_dir: str | None) -> YdlOptionsBuilder:
-        self._args += audio_format.ydl_args(ffmpeg_dir)
+    def with_audio_format(self, audio_format: AudioFormat, ffmpeg_dir: str | None) -> YtDlpOptionsBuilder:
+        self._args += audio_format.ytdlp_args(ffmpeg_dir)
         return self
 
-    def with_cookies(self, cookies_file: str | None) -> YdlOptionsBuilder:
+    def with_cookies(self, cookies_file: str | None) -> YtDlpOptionsBuilder:
         if cookies_file:
             self._args += ["--cookies", cookies_file]
         return self
 
-    def with_archive(self, folder: str, use_archive: bool) -> YdlOptionsBuilder:
+    def with_archive(self, folder: str, use_archive: bool) -> YtDlpOptionsBuilder:
         if use_archive:
             # Remembers finished videos so later runs skip them, even if the file was renamed
             self._args += ["--download-archive", os.path.join(folder, ARCHIVE_FILENAME)]
         return self
 
-    def build(self) -> YdlOptions:
+    def build(self) -> YtDlpOptions:
         import yt_dlp  # Imported late so `doctor` still runs when yt-dlp isn't installed
 
-        options: YdlOptions = yt_dlp.parse_options(self._args).ydl_opts
+        options: YtDlpOptions = yt_dlp.parse_options(self._args).ydl_opts
         # Raise on a failed single video so it's counted. In playlists, keep going past broken entries.
         options["ignoreerrors"] = "only_download" if self._keep_going_past_broken_entries else False
         return options
 
 
-class YdlOptionsDirector:
+class YtDlpOptionsDirector:
     def __init__(
         self, tool_locator: ToolLocator | None = None, events: EventBus | None = None, settings: AppSettings | None = None
     ) -> None:
@@ -108,22 +108,28 @@ class YdlOptionsDirector:
         self._events = events or console_event_bus()
         self._settings = settings
 
-    def options_for(self, request: DownloadRequest) -> YdlOptions:
-        settings = self._settings or get_settings()
-        node_path = self._tools.node_path()
-        if not node_path:
-            self._events.notify(NodeMissing())
-        builder = (
-            YdlOptionsBuilder()
+    def options_for(self, request: DownloadRequest) -> YtDlpOptions:
+        return (
+            YtDlpOptionsBuilder()
             .with_output_template(request.folder, request.title_suffix)
             .with_challenge_solver(self._tools.ejs_installed())
             .with_playlist_policy(request.allow_playlists)
-            .with_js_runtime(node_path)
+            .with_js_runtime(self._node_path_or_warn())
             .with_audio_format(request.audio_format, self._tools.ffmpeg_dir())
+            .with_cookies(self._cookies_file_or_warn())
+            .with_archive(request.folder, request.use_archive)
+            .build()
         )
 
-        cookies_file: str | None = settings.cookies_file
-        if not os.path.isfile(settings.cookies_file):
-            self._events.notify(CookiesMissing(settings.cookies_file))
-            cookies_file = None
-        return builder.with_cookies(cookies_file).with_archive(request.folder, request.use_archive).build()
+    def _node_path_or_warn(self) -> str | None:
+        node_path = self._tools.node_path()
+        if not node_path:
+            self._events.notify(NodeMissing())
+        return node_path
+
+    def _cookies_file_or_warn(self) -> str | None:
+        cookies_file = (self._settings or get_settings()).cookies_file
+        if os.path.isfile(cookies_file):
+            return cookies_file
+        self._events.notify(CookiesMissing(cookies_file))
+        return None
