@@ -1,9 +1,9 @@
 import pytest
 
-from downloader import read_links
+from yt_audio.links import iter_links, read_links
 
 
-@pytest.mark.parametrize("content, expected", [
+@pytest.mark.parametrize(("content", "expected"), [
     ("https://a\nhttps://b\n", ["https://a", "https://b"]),
     ("https://a, https://b,https://c", ["https://a", "https://b", "https://c"]),
     ("https://a\n\n\nhttps://b", ["https://a", "https://b"]),
@@ -29,3 +29,13 @@ def test_read_links_handles_utf8(tmp_path):
 def test_read_links_missing_file_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         read_links(tmp_path / "missing.txt")
+
+
+def test_iter_links_is_lazy(tmp_path):
+    links_file = tmp_path / "links.txt"
+    links_file.write_text("https://a\nhttps://b\n", encoding="utf-8")
+
+    links = iter_links(links_file)
+
+    assert next(links) == "https://a"
+    assert list(links) == ["https://b"]

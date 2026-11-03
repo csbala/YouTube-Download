@@ -9,13 +9,13 @@ import sys
 
 import pytest
 
-import downloader
+from yt_audio.tools import SystemToolLocator
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 VIDEO_URL = "https://youtu.be/Y3D-c5ZJswI"  # short public track, the repo's example link
 MISSING_URL = "https://www.youtube.com/watch?v=xxxxxxxxxxx"
 
-pytestmark = pytest.mark.skipif(downloader.find_node() is None, reason="Node.js is needed for YouTube downloads")
+pytestmark = pytest.mark.skipif(SystemToolLocator().node_path() is None, reason="Node.js is needed for YouTube downloads")
 
 
 def run(*args, timeout=600):
@@ -44,7 +44,7 @@ def test_youtube_webm_download_with_foundry_playlist(music_dir):
 
 
 def test_youtube_mp3_download_for_roll20(music_dir):
-    if downloader.find_ffmpeg() is None:
+    if SystemToolLocator().ffmpeg_dir() is None:
         pytest.skip("ffmpeg is needed for mp3")
 
     result = run(sys.executable, "downloader.py", "download", music_dir, VIDEO_URL, "--format", "mp3")

@@ -1,8 +1,10 @@
 import pytest
 import yt_dlp
 
-import downloader
-from downloader import download_audio
+from yt_audio import download_audio
+from yt_audio.download import Claim, FileOwnershipRegistry, LinkOutcome
+from yt_audio.events import LinkDone, LinkStarted, TitleClash
+from yt_audio.ydl_options import YdlOptionsDirector
 
 
 class FakeYoutubeDL:
@@ -29,7 +31,7 @@ class FakeYoutubeDL:
 def fake_ydl(monkeypatch):
     FakeYoutubeDL.script = {}
     # Options are covered by test_ydl_options.py; building them needs the real YoutubeDL class
-    monkeypatch.setattr(downloader, "build_ydl_options", lambda *args, **kwargs: {})
+    monkeypatch.setattr(YdlOptionsDirector, "options_for", lambda self, request: {})
     monkeypatch.setattr(yt_dlp, "YoutubeDL", FakeYoutubeDL)
     return FakeYoutubeDL.script
 
@@ -116,3 +118,35 @@ def test_download_audio_os_error_fails_only_that_link(tmp_path, fake_ydl, capsys
     assert files == ["ok.webm"]
     assert failed == ["https://locked"]
     assert "Permission denied" in capsys.readouterr().out
+
+
+def test_download_audio_reports_progress_to_subscribers(tmp_path, fake_ydl, recorder, recorded_events, capsys):
+    fake_ydl.update({"https://a": video("song.webm", "id-a"), "https://b": video("song.webm", "id-b")})
+
+    download_audio(["https://a", "https://b"], str(tmp_path), events=recorded_events)
+
+    assert recorder.of_type(LinkStarted) == [LinkStarted("https://a"), LinkStarted("https://b")]
+    assert recorder.of_type(LinkDone) == [LinkDone("https://a")]
+    assert recorder.of_type(TitleClash) == [TitleClash("song.webm")]
+    assert capsys.readouterr().out == ""
+
+
+def test_ownership_registry_tells_new_repeated_and_clashing_files_apart():
+    registry = FileOwnershipRegistry()
+
+    assert registry.claim("song.webm", "id-a") is Claim.NEW_FILE
+    assert registry.claim("song.webm", "id-a") is Claim.SAME_VIDEO_AGAIN
+    assert registry.claim("song.webm", "id-b") is Claim.TITLE_CLASH
+    assert registry.claim("other.webm", "id-b") is Claim.NEW_FILE
+
+
+@pytest.mark.parametrize(("outcome", "failed", "description"), [
+    (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"]), False, "https://a"),
+    (LinkOutcome("https://a", empty_result_is_failure=False), False, "https://a"),
+    (LinkOutcome("https://a", empty_result_is_failure=True), True, "https://a"),
+    (LinkOutcome.fetch_failed("https://a"), True, "https://a"),
+    (LinkOutcome("https://a", empty_result_is_failure=False, files=["a.webm"], problems=["x", "y"]), True, "https://a (x; y)"),
+], ids=["downloaded", "nothing-new-single", "nothing-new-playlist", "fetch-failed", "problems"])
+def test_link_outcome_decides_failure_and_describes_it(outcome, failed, description):
+    assert outcome.failed is failed
+    assert outcome.describe_failure() == description

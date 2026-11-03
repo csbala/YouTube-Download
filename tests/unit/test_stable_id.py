@@ -1,6 +1,6 @@
 import string
 
-from downloader import stable_id
+from yt_audio import stable_id
 
 
 def test_stable_id_same_input_gives_same_id():

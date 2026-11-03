@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-import downloader
-from downloader import download_audio
+from yt_audio import download_audio
+from yt_audio.ydl_options import max_title_length
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def test_download_trims_long_titles_but_not_the_folder(music_dir, tone_url):
     assert failed == []
     [path] = files
     assert os.path.dirname(path) == str(music_dir)
-    assert os.path.basename(path) == ("tone" + suffix)[:downloader.max_filename_length(music_dir)] + ".webm"
+    assert os.path.basename(path) == ("tone" + suffix)[:max_title_length(music_dir)] + ".webm"
 
 
 def test_download_archive_skips_second_run(music_dir, tone_url):

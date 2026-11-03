@@ -1,7 +1,7 @@
 import json
 import urllib.parse
 
-from downloader import write_playlist
+from yt_audio import write_playlist
 
 
 def test_write_playlist_json_points_at_real_files(foundry_data_dir, make_audio_files):

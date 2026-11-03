@@ -8,14 +8,14 @@ import threading
 
 import pytest
 
-import downloader
+from yt_audio.tools import SystemToolLocator
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @pytest.fixture(scope="session")
 def ffmpeg_dir():
-    found = downloader.find_ffmpeg()
+    found = SystemToolLocator().ffmpeg_dir()
     if not found:
         pytest.skip("ffmpeg is not installed")
     return found
@@ -62,9 +62,11 @@ def tone_url(media_server):
 @pytest.fixture
 def run_cli(tmp_path):
     """Run downloader.py as a real subprocess, from a copy in tmp_path so the repo's cookies.txt and links.txt are never used."""
-    script = tmp_path / "app" / "downloader.py"
-    script.parent.mkdir()
+    app = tmp_path / "app"
+    app.mkdir()
+    script = app / "downloader.py"
     shutil.copy(os.path.join(REPO_ROOT, "downloader.py"), script)
+    shutil.copytree(os.path.join(REPO_ROOT, "yt_audio"), app / "yt_audio", ignore=shutil.ignore_patterns("__pycache__"))
 
     def run(*args):
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}

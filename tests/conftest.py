@@ -2,7 +2,9 @@ import os
 
 import pytest
 
-import downloader
+from yt_audio import tools
+from yt_audio.events import EventBus
+from yt_audio.settings import override_settings
 
 LAYERS = ("unit", "integration", "e2e")
 
@@ -17,10 +19,10 @@ def pytest_collection_modifyitems(items):
 
 
 @pytest.fixture(autouse=True)
-def isolate_user_files(tmp_path, monkeypatch):
+def isolate_user_files(tmp_path):
     """Never read the real cookies.txt or links.txt from the repo during tests."""
-    monkeypatch.setattr(downloader, "COOKIES_FILE", str(tmp_path / "no-cookies.txt"))
-    monkeypatch.setattr(downloader, "LINKS_FILE", str(tmp_path / "no-links.txt"))
+    with override_settings(cookies_file=str(tmp_path / "no-cookies.txt"), links_file=str(tmp_path / "no-links.txt")):
+        yield
 
 
 @pytest.fixture
@@ -42,14 +44,48 @@ def make_audio_files():
     return make
 
 
+class FakeToolLocator:
+    """Pretends Node.js, ffmpeg and yt-dlp-ejs are installed. Set an attribute to None/False to 'uninstall' it."""
+    def __init__(self):
+        self.node = "/fake/node"
+        self.ffmpeg = "/fake/ffmpeg-bin"
+        self.ejs = True
+
+    def node_path(self):
+        return self.node
+
+    def ffmpeg_dir(self):
+        return self.ffmpeg
+
+    def ejs_installed(self):
+        return self.ejs
+
+
 @pytest.fixture
 def fake_tools(monkeypatch):
-    """Pretend Node.js and ffmpeg are installed at fixed paths. Set an attribute to None to 'uninstall' it."""
-    class Tools:
-        node = "/fake/node"
-        ffmpeg = "/fake/ffmpeg-bin"
+    """Install a FakeToolLocator as the default locator everything uses."""
+    fake = FakeToolLocator()
+    monkeypatch.setattr(tools, "default_tool_locator", lambda: fake)
+    return fake
 
-    tools = Tools()
-    monkeypatch.setattr(downloader, "find_node", lambda: tools.node)
-    monkeypatch.setattr(downloader, "find_ffmpeg", lambda: tools.ffmpeg)
-    return tools
+
+class EventRecorder:
+    def __init__(self):
+        self.events = []
+
+    def on_event(self, event):
+        self.events.append(event)
+
+    def of_type(self, event_type):
+        return [event for event in self.events if isinstance(event, event_type)]
+
+
+@pytest.fixture
+def recorder():
+    return EventRecorder()
+
+
+@pytest.fixture
+def recorded_events(recorder):
+    """An EventBus whose only subscriber is `recorder`, so nothing reaches the console."""
+    return EventBus(recorder)

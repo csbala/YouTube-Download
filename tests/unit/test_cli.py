@@ -1,17 +1,19 @@
 import pytest
 
-import downloader
-from downloader import main
+from yt_audio import cli, doctor
+from yt_audio.cli import ExitCode, Services, main
 
 
 @pytest.fixture
 def calls(monkeypatch):
-    """Replace the download and playlist steps with recorders. Set calls.failed to simulate failed links."""
+    """Replace the download and playlist services with recorders. Set calls.failed to simulate failed links,
+    calls.error to make the download raise, calls.playlist_error to make writing playlist.json raise."""
     class Calls:
         downloads = []
         playlists = []
         failed = []
         error = None
+        playlist_error = None
 
     def fake_download(links, folder, audio_format, **options):
         if Calls.error:
@@ -20,18 +22,20 @@ def calls(monkeypatch):
         return [f"{folder}/file"], list(Calls.failed)
 
     def fake_write_playlist(folder, **options):
+        if Calls.playlist_error:
+            raise Calls.playlist_error
         Calls.playlists.append({"folder": folder, **options})
 
     Calls.downloads, Calls.playlists, Calls.failed = [], [], []
-    monkeypatch.setattr(downloader, "download_audio", fake_download)
-    monkeypatch.setattr(downloader, "write_playlist", fake_write_playlist)
+    services = Services(download_audio=fake_download, write_playlist=fake_write_playlist, diagnose=doctor.diagnose)
+    monkeypatch.setattr(cli, "default_services", lambda: services)
     return Calls
 
 
 def test_main_downloads_urls_given_as_arguments(calls):
     exit_code = main(["download", "out", "https://a", "https://b"])
 
-    assert exit_code == 0
+    assert exit_code == ExitCode.SUCCESS == 0
     assert calls.downloads[0]["links"] == ["https://a", "https://b"]
     assert calls.downloads[0]["folder"] == "out"
 
@@ -76,7 +80,7 @@ def test_main_legacy_generate_flag_still_downloads(calls):
     assert calls.downloads[0]["folder"] == "out"
 
 
-@pytest.mark.parametrize("args, writes_playlist", [
+@pytest.mark.parametrize(("args", "writes_playlist"), [
     (["--format", "webm"], True),
     (["--format", "mp3"], False),
     (["--format", "mp3", "--playlist-json"], True),
@@ -131,10 +135,8 @@ def test_main_playlist_command_bad_foundry_root_exits_2(tmp_path, capsys):
     assert "Error: couldn't write playlist.json" in capsys.readouterr().out
 
 
-def test_main_playlist_error_after_download_still_prints_summary(calls, monkeypatch, capsys):
-    def broken_write_playlist(folder, **options):
-        raise ValueError("out is not inside the Foundry root root")
-    monkeypatch.setattr(downloader, "write_playlist", broken_write_playlist)
+def test_main_playlist_error_after_download_still_prints_summary(calls, capsys):
+    calls.playlist_error = ValueError("out is not inside the Foundry root root")
 
     exit_code = main(["download", "out", "https://a"])
 
@@ -151,3 +153,11 @@ def test_main_rejects_volume_outside_0_to_1(calls, value, capsys):
 
     assert exc.value.code == 2
     assert "must be a number from 0 to 1" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("argv", [["download", "out"], ["playlist", "out"], ["doctor"]])
+def test_each_subcommand_dispatches_to_its_command_object(argv):
+    args = cli.build_parser().parse_args(argv)
+
+    assert args.command.name == argv[0]
+    assert args.command in cli.COMMANDS

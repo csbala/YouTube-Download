@@ -88,15 +88,66 @@ Tested against Foundry VTT 12.331. Importing very large playlists (100+ tracks) 
 - **ffmpeg not found**: install it (see above) or use `--format webm`.
 - **Foundry can't find the tracks**: make sure the folder is inside Foundry's `Data` directory, or pass `--foundry-root`. The script only recognises a `Data` folder that sits next to Foundry's `Config` folder or inside a folder with "foundry" in its name.
 
+## Architecture
+
+`downloader.py` is only the entry point. The code lives in the `yt_audio` package, one concern per module, and each module's docstring names the design patterns it uses (names from the [refactoring.guru catalog](https://refactoring.guru/design-patterns/python)).
+
+```
+downloader.py           entry point: python downloader.py <command>
+yt_audio/
+  cli.py                the download / playlist / doctor commands
+  download.py           batch download: one session per run, duplicate-title detection, results
+  ydl_options.py        a download request -> yt-dlp options
+  ydl_client.py         fetching one link, with errors turned into results
+  media.py              yt-dlp's info dicts -> a typed tree of videos and playlists
+  formats.py            webm and mp3
+  targets.py            Foundry (webm + playlist.json) and Roll20 (mp3, no playlist)
+  foundry/paths.py      finding Foundry's Data folder
+  foundry/playlist.py   building and writing playlist.json
+  doctor.py             the setup checks
+  tools.py              finding Node.js and ffmpeg
+  events.py             progress events and the console messages they print
+  links.py              reading links.txt
+  settings.py           paths (cookies.txt, links.txt) and constants
+```
+
+| Pattern | Where | Why |
+|---|---|---|
+| Command | `cli.DownloadCommand`, `PlaylistCommand`, `DoctorCommand` | Each subcommand declares and runs itself; `main()` only dispatches |
+| Facade | `yt_audio/__init__.py`, `download.AudioDownloader` | One simple entry point over yt-dlp and the rest of the package |
+| Mediator | `download.BatchDownloadSession` | Coordinates the yt-dlp client, the file-ownership registry and the event bus, which never talk to each other |
+| Builder + Director | `ydl_options.YdlOptionsBuilder`, `YdlOptionsDirector` | yt-dlp options are added one concern at a time |
+| Decorator | `ydl_client.ErrorTranslatingClient` | Wraps the client and turns yt-dlp/OS errors into a `LinkFailed` result, so the loop needs no try/except |
+| Adapter | `media.YtDlpInfoAdapter` | Only this class knows yt-dlp's raw dict shape (`entries`, `None` entries, `requested_downloads`) |
+| Composite | `media.VideoNode`, `FailedEntryNode`, `PlaylistNode` | A video and a playlist of playlists are handled the same way |
+| Iterator | `MediaNode.iter_videos()`, `links.iter_links()`, `foundry.paths.iter_folder_and_ancestors()` | Lazy traversal with generators |
+| Visitor | `media.PlaylistHealthInspector`, `DownloadedFilesCollector` | New calculations over the media tree without changing the node classes |
+| Strategy | `formats.WebmFormat`, `Mp3Format` | Replaces `if audio_format == "mp3"` branches |
+| Factory Method | `AudioFormat.from_name()`, `VttTarget.for_format()` | Turns a command-line choice into the right object |
+| Flyweight | the shared format instances in `formats.AUDIO_FORMATS` | Formats hold no per-download state, so one instance each is shared |
+| Abstract Factory | `targets.FoundryTarget`, `Roll20Target` | Each tabletop gets a matching audio format and playlist exporter, so "playlist.json is on for webm, off for mp3" lives in one place |
+| Prototype | `foundry.playlist.FOUNDRY_SOUND.clone()` | Each Foundry track is a copy of one fully filled-in template |
+| Bridge | `foundry.playlist.PlaylistWriter` with `JsonFileSink` / `MemorySink` | What the playlist is and where it's stored can vary separately |
+| Template Method | `doctor.SetupCheck.run()` | Every check follows the same probe, find problem, describe OK steps |
+| Chain of Responsibility | `tools.SystemPathLookup` → `KnownLocationLookup` / `WingetPackageLookup` | Each lookup tries one place, then passes the search on |
+| Proxy | `tools.CachingToolLocator` | Looks each tool up only once per run |
+| Observer | `events.EventBus`, `ConsoleReporter` | Library code reports events instead of printing; all user-facing progress messages live in one class |
+| Singleton | `settings.SettingsHolder` | One thread-safe place for the paths every module reads |
+| Memento | `SettingsHolder.save()` / `restore()`, used by `override_settings()` | Settings can be changed temporarily and rolled back, e.g. in tests |
+
+**State** isn't used: nothing here changes its behaviour over its lifetime, so a state machine would add classes without removing any branches.
+
 ## Tests
 
 ```
 pip install -r requirements-dev.txt
 pytest              # unit + integration, no internet needed
 pytest -m e2e       # real YouTube downloads
+ruff check .        # lint
+mypy                # strict type check of yt_audio
 ```
 
-See [tests/README.md](tests/README.md) for how the suite is organised. GitHub Actions runs unit and integration tests on Windows and Linux on every push.
+See [tests/README.md](tests/README.md) for how the suite is organised. GitHub Actions runs ruff, mypy, and unit and integration tests on Windows and Linux on every push.
 
 ## License
 

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yt-audio"
+version = "2.0.0"
+description = "YouTube audio downloader with a Foundry VTT playlist generator"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["yt-dlp[default]>=2025.11.12"]
+
+[project.scripts]
+yt-audio = "yt_audio.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["yt_audio*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# e2e tests hit real YouTube, so they only run when asked for: pytest -m e2e
+addopts = '-m "not e2e" --strict-markers'
+markers = [
+    "unit: fast, isolated tests of single classes and functions (tests/unit)",
+    "integration: real yt-dlp, ffmpeg and filesystem, but no internet (tests/integration)",
+    "e2e: full runs against real YouTube (tests/e2e), opt-in",
+]
+
+[tool.coverage.run]
+source = ["yt_audio"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF", "PT"]
+ignore = [
+    "E501",    # user-facing messages are kept on one line so they can be grepped
+    "RUF001",  # test data uses non-ASCII on purpose (Hungarian file names)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "RUF012",  # test fakes keep their recordings in class attributes
+    "PT018",   # `assert a and b` reads fine for "neither of these appears in the output"
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+packages = ["yt_audio"]
+
+[[tool.mypy.overrides]]
+module = ["yt_dlp", "yt_dlp.*"]
+ignore_missing_imports = true

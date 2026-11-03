@@ -1,6 +1,6 @@
 import pytest
 
-from downloader import build_playlist
+from yt_audio import build_playlist
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def test_build_playlist_lists_tracks_sorted_by_filename(apple_folder, make_audio
     assert [s["sort"] for s in playlist["sounds"]] == [0, 1, 2]
 
 
-@pytest.mark.parametrize("audio_format, expected", [
+@pytest.mark.parametrize(("audio_format", "expected"), [
     ("webm", ["a", "b"]),
     ("mp3", ["c", "d"]),
 ])
@@ -29,7 +29,7 @@ def test_build_playlist_includes_only_chosen_format(apple_folder, make_audio_fil
     assert [s["name"] for s in playlist["sounds"]] == expected
 
 
-@pytest.mark.parametrize("filename, expected_path", [
+@pytest.mark.parametrize(("filename", "expected_path"), [
     ("A song.webm", "Music_Import/apple/A%20song.webm"),
     ("Track #1.webm", "Music_Import/apple/Track%20%231.webm"),
     ("Zene ő.webm", "Music_Import/apple/Zene%20%C5%91.webm"),
