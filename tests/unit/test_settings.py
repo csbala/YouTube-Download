@@ -1,18 +1,12 @@
 import os
-import threading
 
-from yt_audio.settings import PROJECT_ROOT, AppSettings, SettingsHolder, get_settings, override_settings
+import pytest
+
+from yt_audio.settings import PROJECT_ROOT, AppSettings, get_settings, override_settings, user_files_dir
 
 
-def test_settings_holder_is_a_singleton_even_across_threads():
-    holders = []
-    threads = [threading.Thread(target=lambda: holders.append(SettingsHolder())) for _ in range(8)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-    assert all(holder is SettingsHolder() for holder in holders)
+def test_get_settings_returns_the_same_settings_every_time():
+    assert get_settings() is get_settings()
 
 
 def test_project_settings_point_next_to_downloader_py():
@@ -38,11 +32,33 @@ def test_override_settings_restores_the_previous_settings_even_after_an_error():
     assert get_settings() == before
 
 
-def test_memento_round_trip():
-    holder = SettingsHolder()
-    memento = holder.save()
-    holder.update(cookies_file="x")
+def test_overrides_nest_and_unwind_in_order():
+    before = get_settings()
 
-    holder.restore(memento)
+    with override_settings(cookies_file="outer.txt"), override_settings(links_file="inner.txt") as inner:
+        assert (inner.cookies_file, inner.links_file) == ("outer.txt", "inner.txt")
 
-    assert holder.settings.cookies_file != "x"
+    assert get_settings() == before
+
+
+def test_user_files_live_in_the_repo_when_running_from_a_checkout():
+    assert user_files_dir(environ={}) == PROJECT_ROOT
+
+
+def test_yt_audio_home_wins_over_everything(tmp_path):
+    assert user_files_dir(environ={"YT_AUDIO_HOME": str(tmp_path)}) == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("os_name", "environ", "expected"),
+    [
+        ("nt", {"APPDATA": "C:/Users/me/AppData/Roaming"}, os.path.join("C:/Users/me/AppData/Roaming", "yt-audio")),
+        ("nt", {"USERPROFILE": "C:/Users/me"}, os.path.join("C:/Users/me", "AppData", "Roaming", "yt-audio")),
+        ("posix", {"XDG_CONFIG_HOME": "/home/me/.cfg"}, os.path.join("/home/me/.cfg", "yt-audio")),
+        ("posix", {"HOME": "/home/me"}, os.path.join("/home/me", ".config", "yt-audio")),
+    ],
+)
+def test_installed_package_keeps_user_files_in_the_config_folder(tmp_path, os_name, environ, expected):
+    installed = tmp_path / "site-packages"  # no downloader.py next to the package
+
+    assert user_files_dir(environ=environ, project_root=str(installed), os_name=os_name) == expected

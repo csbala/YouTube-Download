@@ -2,8 +2,8 @@ import pytest
 import yt_dlp
 
 from yt_audio import download_audio
-from yt_audio.download import FileClaim, FileOwnershipRegistry, LinkOutcome
-from yt_audio.events import LinkDone, LinkStarted, TitleClash
+from yt_audio.download import DownloadInterrupted, FileClaim, FileOwnershipRegistry, LinkOutcome
+from yt_audio.events import LinkDone, LinkErrored, LinkStarted, TitleClash
 from yt_audio.ytdlp_options import YtDlpOptionsDirector
 
 
@@ -23,7 +23,7 @@ class FakeYoutubeDL:
 
     def extract_info(self, url, download):
         result = self.script[url]
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             raise result
         return result
 
@@ -111,6 +111,14 @@ def test_download_audio_same_video_twice_is_not_a_clash(tmp_path, fake_ytdlp):
     assert (files, failed) == (["song.mp3"], [])
 
 
+def test_download_audio_keeps_ytdlps_error_text_without_printing_it_twice(tmp_path, fake_ytdlp, recorder, recorded_events):
+    fake_ytdlp["https://bad"] = yt_dlp.utils.DownloadError("ERROR: [youtube] bad: Video unavailable")
+
+    download_audio(["https://bad"], str(tmp_path), events=recorded_events)
+
+    assert recorder.of_type(LinkErrored) == [LinkErrored("[youtube] bad: Video unavailable", "https://bad", already_printed=True)]
+
+
 def test_download_audio_os_error_fails_only_that_link(tmp_path, fake_ytdlp, capsys):
     fake_ytdlp.update({"https://locked": PermissionError(13, "Permission denied"), "https://ok": video("ok.mp3")})
 
@@ -127,9 +135,19 @@ def test_download_audio_reports_progress_to_subscribers(tmp_path, fake_ytdlp, re
     download_audio(["https://a", "https://b"], str(tmp_path), events=recorded_events)
 
     assert recorder.of_type(LinkStarted) == [LinkStarted("https://a"), LinkStarted("https://b")]
-    assert recorder.of_type(LinkDone) == [LinkDone("https://a")]
+    assert recorder.of_type(LinkDone) == [LinkDone("https://a", ("song.mp3",))]
     assert recorder.of_type(TitleClash) == [TitleClash("song.mp3")]
     assert capsys.readouterr().out == ""
+
+
+def test_download_audio_ctrl_c_keeps_what_finished_and_lists_the_rest(tmp_path, fake_ytdlp, recorded_events):
+    fake_ytdlp.update({"https://a": video("a.mp3"), "https://b": KeyboardInterrupt(), "https://c": video("c.mp3")})
+
+    with pytest.raises(DownloadInterrupted) as interrupted:
+        download_audio(["https://a", "https://b", "https://c"], str(tmp_path), events=recorded_events)
+
+    assert interrupted.value.partial == (["a.mp3"], [])
+    assert interrupted.value.unfinished == ["https://b", "https://c"]
 
 
 def test_ownership_registry_tells_new_repeated_and_clashing_files_apart():

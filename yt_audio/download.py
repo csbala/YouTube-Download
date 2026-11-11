@@ -70,6 +70,23 @@ class BatchResult(NamedTuple):
     files: list[str]
     failed_links: list[str]
 
+    @classmethod
+    def from_outcomes(cls, outcomes: Iterable[LinkOutcome]) -> BatchResult:
+        outcomes = list(outcomes)
+        return cls(
+            files=[path for outcome in outcomes for path in outcome.files],
+            failed_links=[outcome.describe_failure() for outcome in outcomes if outcome.failed],
+        )
+
+
+class DownloadInterrupted(KeyboardInterrupt):
+    """Ctrl+C during a batch. Carries what finished before it, and the links that didn't."""
+
+    def __init__(self, partial: BatchResult, unfinished: list[str]) -> None:
+        super().__init__()
+        self.partial = partial
+        self.unfinished = unfinished
+
 
 class BatchDownloadSession:
     """Downloads links one at a time, and keeps track of which video wrote which file across the whole batch."""
@@ -84,13 +101,12 @@ class BatchDownloadSession:
         self._events.notify(LinkStarted(link))
         result = self._client.fetch(link)
         if isinstance(result, LinkFailed):
-            if result.reason:
-                self._events.notify(LinkErrored(result.reason))
+            self._events.notify(LinkErrored(result.reason, link=link, already_printed=result.already_printed))
             return LinkOutcome.fetch_failed(link)
 
         outcome = self._outcome_for(link, result.media)
         if not outcome.failed:
-            self._events.notify(LinkDone(link))
+            self._events.notify(LinkDone(link, tuple(outcome.files)))
         return outcome
 
     def _outcome_for(self, link: str, media: MediaNode) -> LinkOutcome:
@@ -126,14 +142,15 @@ class AudioDownloader:
         ytdlp_options = self._options_director.options_for(request)
 
         self._events.notify(BatchStarted(len(links), request.folder, request.audio_format.name))
-        with open_ytdlp_client(ytdlp_options) as client:
-            session = BatchDownloadSession(client, request, self._events)
-            outcomes = [session.download(link) for link in links]
-
-        return BatchResult(
-            files=[path for outcome in outcomes for path in outcome.files],
-            failed_links=[outcome.describe_failure() for outcome in outcomes if outcome.failed],
-        )
+        outcomes: list[LinkOutcome] = []
+        try:
+            with open_ytdlp_client(ytdlp_options) as client:
+                session = BatchDownloadSession(client, request, self._events)
+                for link in links:
+                    outcomes.append(session.download(link))
+        except KeyboardInterrupt:
+            raise DownloadInterrupted(BatchResult.from_outcomes(outcomes), links[len(outcomes) :]) from None
+        return BatchResult.from_outcomes(outcomes)
 
 
 def download_audio(
@@ -144,12 +161,22 @@ def download_audio(
     suffix: str = "",
     allow_playlists: bool = False,
     archive: bool = False,
+    embed_tags: bool = True,
+    quiet: bool = False,
     tool_locator: ToolLocator | None = None,
     events: EventBus | None = None,
+    settings: AppSettings | None = None,
 ) -> BatchResult:
     """Download each link as audio into folder. Returns (files, failed_links), where failed_links holds
-    each failed link, with the reason appended when it only partly failed."""
+    each failed link, with the reason appended when it only partly failed.
+    Raises DownloadInterrupted (a KeyboardInterrupt) on Ctrl+C, carrying what finished before it."""
     request = DownloadRequest(
-        folder, AudioFormat.from_name(audio_format), title_suffix=suffix, allow_playlists=allow_playlists, use_archive=archive
+        folder,
+        AudioFormat.from_name(audio_format),
+        title_suffix=suffix,
+        allow_playlists=allow_playlists,
+        use_archive=archive,
+        embed_tags=embed_tags,
+        quiet=quiet,
     )
-    return AudioDownloader(tool_locator, events).download(links, request)
+    return AudioDownloader(tool_locator, events, settings).download(links, request)

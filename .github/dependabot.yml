@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # yt-dlp has to keep up with YouTube, so check weekly
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-tools:
+        patterns: ["pytest*", "ruff", "mypy", "pip-audit"]
+
+  # Keeps the commit SHAs pinned in .github/workflows current
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

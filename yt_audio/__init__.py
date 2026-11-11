@@ -1,4 +1,4 @@
-"""Download the audio of YouTube videos as mp3 or webm.
+"""Download the audio of YouTube videos as mp3, m4a or webm.
 
 Pattern: Facade. This module is the package's public surface; callers never need the submodules.
 """
@@ -8,6 +8,7 @@ from .doctor import CheckResult, CheckStatus, diagnose
 from .download import AudioDownloader, BatchResult, download_audio
 from .formats import DEFAULT_FORMAT, FORMAT_NAMES
 from .links import iter_links, read_links
+from .version import __version__
 
 __all__ = [
     "DEFAULT_FORMAT",
@@ -16,6 +17,7 @@ __all__ = [
     "BatchResult",
     "CheckResult",
     "CheckStatus",
+    "__version__",
     "diagnose",
     "download_audio",
     "iter_links",

@@ -1,4 +1,6 @@
 import os
+import shutil
+import subprocess
 
 import pytest
 
@@ -9,6 +11,20 @@ from yt_audio.ytdlp_options import max_title_length
 @pytest.fixture
 def music_dir(tmp_path):
     return tmp_path / "music"
+
+
+@pytest.fixture
+def title_tag(ffmpeg_dir):
+    """Reads a file's title tag with ffprobe, which ships with ffmpeg. '' when it has none."""
+    ffprobe = shutil.which("ffprobe", path=ffmpeg_dir)
+    if not ffprobe:
+        pytest.skip("ffprobe is not installed")
+
+    def read(path):
+        command = [ffprobe, "-v", "error", "-show_entries", "format_tags=title", "-of", "default=nw=1:nk=1", path]
+        return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True).stdout.strip()
+
+    return read
 
 
 def test_download_webm_saves_file_and_returns_its_path(music_dir, tone_url):
@@ -25,6 +41,26 @@ def test_download_mp3_converts_with_ffmpeg(music_dir, tone_url):
     assert failed == []
     assert [os.path.basename(f) for f in files] == ["tone.mp3"]
     assert sorted(os.listdir(music_dir)) == ["tone.mp3"]
+
+
+def test_download_mp3_is_tagged_with_the_title(music_dir, tone_url, title_tag):
+    files, _ = download_audio([tone_url], str(music_dir), "mp3")
+
+    assert title_tag(files[0]) == "tone"
+
+
+def test_download_mp3_without_tags(music_dir, tone_url, title_tag):
+    files, _ = download_audio([tone_url], str(music_dir), "mp3", embed_tags=False)
+
+    assert title_tag(files[0]) == ""
+
+
+def test_download_m4a_saves_a_tagged_m4a(music_dir, tone_url, title_tag):
+    files, failed = download_audio([tone_url], str(music_dir), "m4a")
+
+    assert failed == []
+    assert sorted(os.listdir(music_dir)) == ["tone.m4a"]
+    assert title_tag(files[0]) == "tone"
 
 
 def test_download_adds_suffix_to_filename(music_dir, tone_url):

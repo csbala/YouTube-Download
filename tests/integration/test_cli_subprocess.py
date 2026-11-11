@@ -1,3 +1,6 @@
+import json
+
+
 def test_cli_help_exits_0(run_cli):
     result = run_cli("--help")
 
@@ -31,3 +34,18 @@ def test_cli_failed_download_exits_1(run_cli, tmp_path, media_server):
 
     assert result.returncode == 1
     assert f"FAILED: {missing}" in result.stdout
+
+
+def test_cli_json_output_is_pure_json_lines(run_cli, tmp_path, tone_url, media_server):
+    missing = f"{media_server}/missing.webm"
+
+    result = run_cli("download", tmp_path / "out", tone_url, missing, "--format", "webm", "--json")
+
+    assert result.returncode == 1
+    records = [json.loads(line) for line in result.stdout.splitlines()]  # every stdout line parses
+    events = [record["event"] for record in records]
+    assert events[0] in ("node_missing", "cookies_missing", "batch_started")
+    assert events[-1] == "batch_finished"
+    errored = next(record for record in records if record["event"] == "link_errored")
+    assert errored["link"] == missing and errored["reason"]
+    assert records[-1]["files"] == [str(tmp_path / "out" / "tone.webm")]

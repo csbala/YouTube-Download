@@ -177,7 +177,7 @@ class CookiesCheck(SetupCheck[CookiesFinding]):
                 f"cookies.txt not found at {self._cookies_file}. Public videos usually work; "
                 "age-restricted ones and 'confirm you're not a bot' blocks will fail. "
                 "Fix: export YouTube cookies with the 'Get cookies.txt LOCALLY' browser extension "
-                "and save them as cookies.txt next to downloader.py.",
+                f"and save them as {self._cookies_file} (or pass --cookies FILE).",
             )
         if not finding.is_netscape_format:
             return CheckResult(

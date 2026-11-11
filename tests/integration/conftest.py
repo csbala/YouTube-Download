@@ -81,6 +81,7 @@ def run_cli(tmp_path):
 
     def run(*args):
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        env.pop("YT_AUDIO_HOME", None)  # use the copy's own folder, never the user's
         return subprocess.run(
             [sys.executable, str(script), *map(str, args)], capture_output=True, text=True, encoding="utf-8", env=env, timeout=120
         )

@@ -4,14 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yt-audio"
-version = "3.0.0"
-description = "Download the audio of YouTube videos as mp3 or webm"
+dynamic = ["version"]
+description = "Download the audio of YouTube videos as mp3, m4a or webm"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["yt-dlp[default]>=2025.11.12"]
 
 [project.scripts]
 yt-audio = "yt_audio.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "yt_audio.version.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["yt_audio*"]

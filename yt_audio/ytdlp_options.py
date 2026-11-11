@@ -30,6 +30,8 @@ class DownloadRequest:
     title_suffix: str = ""
     allow_playlists: bool = False
     use_archive: bool = False
+    embed_tags: bool = True
+    quiet: bool = False  # keep yt-dlp's own messages off stdout (its errors still go to stderr)
 
     @property
     def empty_result_is_failure(self) -> bool:
@@ -80,6 +82,11 @@ class YtDlpOptionsBuilder:
         self._args += audio_format.ytdlp_args(ffmpeg_dir)
         return self
 
+    def with_tags(self, audio_format: AudioFormat, embed_tags: bool) -> YtDlpOptionsBuilder:
+        if embed_tags:
+            self._args += audio_format.tag_args()
+        return self
+
     def with_cookies(self, cookies_file: str | None) -> YtDlpOptionsBuilder:
         if cookies_file:
             self._args += ["--cookies", cookies_file]
@@ -89,6 +96,11 @@ class YtDlpOptionsBuilder:
         if use_archive:
             # Remembers finished videos so later runs skip them, even if the file was renamed
             self._args += ["--download-archive", os.path.join(folder, ARCHIVE_FILENAME)]
+        return self
+
+    def with_quiet_output(self, quiet: bool) -> YtDlpOptionsBuilder:
+        if quiet:
+            self._args += ["--quiet", "--no-progress"]
         return self
 
     def build(self) -> YtDlpOptions:
@@ -116,8 +128,10 @@ class YtDlpOptionsDirector:
             .with_playlist_policy(request.allow_playlists)
             .with_js_runtime(self._node_path_or_warn())
             .with_audio_format(request.audio_format, self._tools.ffmpeg_dir())
+            .with_tags(request.audio_format, request.embed_tags)
             .with_cookies(self._cookies_file_or_warn())
             .with_archive(request.folder, request.use_archive)
+            .with_quiet_output(request.quiet)
             .build()
         )
 

@@ -7,9 +7,14 @@ from yt_audio.settings import MAX_TITLE_LENGTH, override_settings
 from yt_audio.ytdlp_options import DownloadRequest, YtDlpOptionsDirector, max_title_length
 
 
-def build_ytdlp_options(folder, audio_format, suffix="", allow_playlists=False, archive=False):
+def build_ytdlp_options(folder, audio_format, suffix="", allow_playlists=False, archive=False, embed_tags=True):
     request = DownloadRequest(
-        folder, AudioFormat.from_name(audio_format), title_suffix=suffix, allow_playlists=allow_playlists, use_archive=archive
+        folder,
+        AudioFormat.from_name(audio_format),
+        title_suffix=suffix,
+        allow_playlists=allow_playlists,
+        use_archive=archive,
+        embed_tags=embed_tags,
     )
     return YtDlpOptionsDirector().options_for(request)
 
@@ -157,3 +162,33 @@ def test_only_a_playlist_without_archive_fails_when_nothing_downloads(allow_play
     request = DownloadRequest("out", AudioFormat.from_name("webm"), allow_playlists=allow_playlists, use_archive=use_archive)
 
     assert request.empty_result_is_failure is expected
+
+
+def postprocessor_keys(opts):
+    return {pp["key"] for pp in opts.get("postprocessors", [])}
+
+
+@pytest.mark.parametrize("audio_format", ["mp3", "m4a"])
+def test_converted_formats_embed_metadata_and_cover_art(tmp_path, fake_tools, audio_format):
+    opts = build_ytdlp_options(str(tmp_path), audio_format)
+
+    assert {"FFmpegMetadata", "EmbedThumbnail"} <= postprocessor_keys(opts)
+    assert opts["writethumbnail"] is True  # fetched for embedding, then deleted
+
+
+@pytest.mark.parametrize(("audio_format", "embed_tags"), [("mp3", False), ("webm", True)])
+def test_no_tags_when_turned_off_or_for_webm(tmp_path, fake_tools, audio_format, embed_tags):
+    opts = build_ytdlp_options(str(tmp_path), audio_format, embed_tags=embed_tags)
+
+    assert not {"FFmpegMetadata", "EmbedThumbnail"} & postprocessor_keys(opts)
+    assert not opts.get("writethumbnail")
+
+
+@pytest.mark.parametrize("quiet", [False, True])
+def test_quiet_keeps_ytdlp_off_stdout(tmp_path, fake_tools, quiet):
+    request = DownloadRequest(str(tmp_path), AudioFormat.from_name("webm"), quiet=quiet)
+
+    opts = YtDlpOptionsDirector().options_for(request)
+
+    assert bool(opts.get("quiet")) is quiet
+    assert bool(opts.get("noprogress")) is quiet

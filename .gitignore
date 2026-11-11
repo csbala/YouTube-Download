@@ -14,3 +14,7 @@ links.txt
 .pytest_cache/
 .coverage
 htmlcov/
+# Package builds
+build/
+dist/
+*.egg-info/

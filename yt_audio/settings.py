@@ -1,22 +1,20 @@
 """Paths and constants shared by the whole package.
 
-Patterns:
-- Singleton: SettingsHolder keeps the one AppSettings the process uses (thread-safe).
-- Memento: SettingsHolder.save() / restore() snapshot and roll back the settings, which is what
-  override_settings() uses so tests never read the user's real cookies.txt or links.txt.
+The current AppSettings is a plain module-level value: get_settings() reads it and override_settings()
+swaps it for a while. Code that needs other settings can also take an AppSettings argument instead.
 """
 
 from __future__ import annotations
 
 import os
-import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Any
 
-# The folder holding downloader.py and the yt_audio package. cookies.txt and links.txt live here.
+# The folder holding the yt_audio package: the repo, when running from a checkout
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HOME_ENV_VAR = "YT_AUDIO_HOME"
 
 MIN_YT_DLP_VERSION = "2025.11.12"  # First release with --js-runtimes and --remote-components
 
@@ -32,60 +30,54 @@ class AppSettings:
     links_file: str
 
     @classmethod
+    def in_folder(cls, folder: str) -> AppSettings:
+        return cls(cookies_file=os.path.join(folder, "cookies.txt"), links_file=os.path.join(folder, "links.txt"))
+
+    @classmethod
     def for_project(cls, project_root: str = PROJECT_ROOT) -> AppSettings:
-        return cls(
-            cookies_file=os.path.join(project_root, "cookies.txt"),
-            links_file=os.path.join(project_root, "links.txt"),
-        )
+        return cls.in_folder(project_root)
+
+    @classmethod
+    def default(cls) -> AppSettings:
+        return cls.in_folder(user_files_dir())
 
 
-@dataclass(frozen=True)
-class SettingsMemento:
-    """An opaque snapshot of the settings, handed back to SettingsHolder.restore()."""
+def user_files_dir(environ: Mapping[str, str] = os.environ, project_root: str = PROJECT_ROOT, os_name: str = os.name) -> str:
+    """Where cookies.txt and links.txt live:
+    1. $YT_AUDIO_HOME, when set;
+    2. the repo, when running from a checkout (next to downloader.py), as before;
+    3. otherwise (installed with pip or pipx) the user's config folder: %APPDATA%\\yt-audio on Windows,
+       $XDG_CONFIG_HOME/yt-audio or ~/.config/yt-audio elsewhere.
+    """
+    if environ.get(HOME_ENV_VAR):
+        return environ[HOME_ENV_VAR]
+    if os.path.isfile(os.path.join(project_root, "downloader.py")):
+        return project_root
+    home = environ.get("USERPROFILE" if os_name == "nt" else "HOME") or os.path.expanduser("~")
+    if os_name == "nt":
+        return os.path.join(environ.get("APPDATA") or os.path.join(home, "AppData", "Roaming"), "yt-audio")
+    return os.path.join(environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config"), "yt-audio")
 
-    _state: AppSettings
 
-
-class SettingsHolder:
-    """Singleton holder of the current AppSettings."""
-
-    _instance: SettingsHolder | None = None
-    _lock = threading.Lock()
-    _settings: AppSettings
-
-    def __new__(cls) -> SettingsHolder:
-        with cls._lock:
-            if cls._instance is None:
-                instance = super().__new__(cls)
-                instance._settings = AppSettings.for_project()
-                cls._instance = instance
-            return cls._instance
-
-    @property
-    def settings(self) -> AppSettings:
-        return self._settings
-
-    def update(self, **changes: Any) -> None:
-        self._settings = replace(self._settings, **changes)
-
-    def save(self) -> SettingsMemento:
-        return SettingsMemento(self._settings)
-
-    def restore(self, memento: SettingsMemento) -> None:
-        self._settings = memento._state
+_current: AppSettings | None = None  # set on first use, so importing the package touches no files
 
 
 def get_settings() -> AppSettings:
-    return SettingsHolder().settings
+    """The settings this process uses: the defaults, unless override_settings() is active."""
+    global _current
+    if _current is None:
+        _current = AppSettings.default()
+    return _current
 
 
 @contextmanager
 def override_settings(**changes: Any) -> Iterator[AppSettings]:
-    """Temporarily change settings, e.g. override_settings(cookies_file=...). Restores them on exit."""
-    holder = SettingsHolder()
-    memento = holder.save()
-    holder.update(**changes)
+    """Temporarily change settings, e.g. override_settings(cookies_file=...). Restores them on exit,
+    which is how tests keep away from the user's real cookies.txt and links.txt."""
+    global _current
+    previous = get_settings()
+    _current = replace(previous, **changes)
     try:
-        yield holder.settings
+        yield _current
     finally:
-        holder.restore(memento)
+        _current = previous

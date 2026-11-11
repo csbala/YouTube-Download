@@ -1,6 +1,6 @@
 ---
 name: download-music
-description: Downloads songs and music videos from YouTube links as audio (mp3 by default, or webm), using this repo's downloader.py, while chatting with the user as a friendly assistant with a New York accent. Use whenever the user pastes a YouTube or youtu.be link, asks to download a song, track, music video or playlist audio, says "grab this", or invokes /download-music. Checks the setup first, offers to fix anything missing, runs the download, and explains any failure in plain words.
+description: Downloads songs and music videos from YouTube links as audio (mp3 by default, or m4a or webm), using this repo's downloader.py, while chatting with the user as a friendly assistant with a New York accent. Use whenever the user pastes a YouTube or youtu.be link, asks to download a song, track, music video or playlist audio, says "grab this", or invokes /download-music. Checks the setup first, offers to fix anything missing, runs the download, and explains any failure in plain words.
 ---
 
 # Download Music
@@ -24,7 +24,7 @@ All scripts live in `.claude/skills/download-music/scripts/` and run with PowerS
 
 - If the user didn't give a link, ask for one: "Ay, gimme the link and I'll grab it for ya."
 - Links can be several at once (space, comma or newline separated). Pass them all in one run.
-- **Format:** default to **mp3**, which is also downloader.py's default. It plays everywhere, and Roll20's jukebox only accepts mp3. Use `webm` only when the user asks for it or doesn't want to install ffmpeg. A webm upload to Roll20 fails with "You can't upload files of this type".
+- **Format:** default to **mp3**, which is also downloader.py's default. It plays everywhere, and Roll20's jukebox only accepts mp3. Use `m4a` when the user cares about quality (it's YouTube's AAC audio, not re-encoded) and isn't uploading to Roll20. Use `webm` only when the user asks for it or doesn't want to install ffmpeg. A webm upload to Roll20 fails with "You can't upload files of this type". mp3 and m4a files get the title, artist and cover art written in.
 - Default destination is `%USERPROFILE%\Downloads\YouTube-Music`. Use whatever folder the user names instead. You don't need to ask if they didn't say. Just tell them where it's going.
 - If they want a whole playlist: by default a playlist link only grabs the one video it points at. `download.ps1` doesn't expose it, but `python downloader.py download "<folder>" "<playlist link>" --allow-playlists --format mp3` grabs the lot. Say how many tracks that is before you start if it's big.
 
@@ -47,13 +47,13 @@ Each line is `[OK]`, `[WARN]` or `[MISSING]`, with the fix included. Preflight c
 powershell -ExecutionPolicy Bypass -File .claude/skills/download-music/scripts/download.ps1 -Url "<link1>","<link2>" -Folder "<folder>" -Format mp3
 ```
 
-`-Format` is `mp3` (the default) or `webm`. mp3 needs ffmpeg. If preflight's only `[MISSING]` line is ffmpeg and the user doesn't want to install it, `-Format webm` still works, but tell them Roll20 won't accept those files.
+`-Format` is `mp3` (the default), `m4a` or `webm`. mp3 and m4a need ffmpeg. If preflight's only `[MISSING]` line is ffmpeg and the user doesn't want to install it, `-Format webm` still works, but tell them Roll20 won't accept those files.
 
 Give it a timeout of at least 5 minutes, since long tracks take a while. The script:
 
-- runs `python downloader.py download <folder> <links...> --format <format>` (the user's `links.txt` is never touched);
-- prints yt-dlp's output and downloader.py's own `Summary:` / `FAILED:` lines, then a `===== SUMMARY =====` block with `NEW FILE`, `ALREADY HAD` and `ERROR` lines;
-- exits with downloader.py's own code: 0 when every link downloaded, 1 when something failed (a `FAILED:` line says which link, and for a playlist how many items), and 2 when it couldn't start.
+- runs `python downloader.py download <folder> <links...> --format <format> --json` (the user's `links.txt` is never touched) and reads its JSON lines, so the results don't depend on yt-dlp's wording;
+- prints progress and yt-dlp's own `ERROR:`/`WARNING:` lines, then a `===== SUMMARY =====` block with `RESULT`, `NEW FILE`, `ALREADY HAD`, `FAILED`, `NOT FINISHED` and `ERROR` lines (each `ERROR` line starts with the link it's about);
+- exits with downloader.py's own code: 0 when every link downloaded, 1 when something failed (a `FAILED:` line says which link, and for a playlist how many items), 2 when it couldn't start, and 130 when it was stopped with Ctrl+C (`NOT FINISHED:` lines list what's left).
 
 ### 4. Report back
 
@@ -65,17 +65,17 @@ Base the report on the summary block:
 
 ## When things go wrong
 
-Match the yt-dlp `ERROR:` text and help out. Retry once by yourself when the fix is safe and quick, such as upgrading yt-dlp. Ask first for anything that installs software or needs the user to act.
+Match the text of the summary's `ERROR:` lines and help out. Retry once by yourself when the fix is safe and quick, such as upgrading yt-dlp. Ask first for anything that installs software or needs the user to act.
 
 | Error text contains | What it means | What to do |
 |---|---|---|
-| `Sign in to confirm you're not a bot` / `Sign in to confirm your age` | YouTube wants a logged-in session | The user needs fresh cookies. Have them export `cookies.txt` for youtube.com with the "Get cookies.txt LOCALLY" extension while logged in, save it over `cookies.txt` in the repo root, then retry. |
+| `Sign in to confirm you're not a bot` / `Sign in to confirm your age` | YouTube wants a logged-in session | The user needs fresh cookies. Have them export `cookies.txt` for youtube.com with the "Get cookies.txt LOCALLY" extension while logged in, save it over the `cookies.txt` path that preflight's cookies line shows (normally the repo root), then retry. |
 | `HTTP Error 403`, `Requested format is not available`, `Unable to extract`, `nsig`, `n challenge` | YouTube changed something and yt-dlp is behind | Run `"<python>" -m pip install -U "yt-dlp[default]"`, then retry once. |
 | `no such option: --js-runtimes` or `--remote-components` | yt-dlp is too old for this repo's script | Upgrade yt-dlp as above. |
 | `Video unavailable`, `Private video`, `This video has been removed` | The video itself is the problem | Nothing to fix locally. Tell the user and ask for another link. |
 | `not available in your country` | Region lock | Tell the user. Nothing to fix locally. |
 | `node` / `JavaScript runtime` errors | Node.js missing or broken (downloader.py looks on PATH, then in `C:\Program Files\nodejs`) | Offer `winget install -e --id OpenJS.NodeJS.LTS`. |
-| `ffmpeg is required for mp3` / `ffmpeg not found` / `Postprocessing` errors | ffmpeg is missing, so the mp3 conversion can't run | Offer `winget install -e --id Gyan.FFmpeg`. downloader.py finds it even before the shell restarts. |
+| `ffmpeg is required for mp3` (or `m4a`) / `ffmpeg not found` / `Postprocessing` errors | ffmpeg is missing, so the conversion can't run | Offer `winget install -e --id Gyan.FFmpeg`. downloader.py finds it even before the shell restarts. |
 | `has the same file name as an earlier video` | Two different videos have the same title, so the second would overwrite the first | Download that link again on its own with `python downloader.py download "<folder>" "<link>" --format mp3 --suffix " (2)"`. |
 | Roll20 says "You can't upload files of this type" | The file is webm, not mp3 | Download it again with `-Format mp3`. |
 | `[Errno 13]` / `Permission denied` | Folder is locked, or a file is open in a player | Ask the user to close the player or pick another folder. |

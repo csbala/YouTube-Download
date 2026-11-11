@@ -2,7 +2,10 @@ name: tests
 
 on:
   push:
+    branches: [main]  # other branches are tested through their pull request, so nothing runs twice
   pull_request:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC: catch YouTube or yt-dlp changes before users do
   workflow_dispatch:
     inputs:
       e2e:
@@ -10,13 +13,23 @@ on:
         type: boolean
         default: false
 
+# Nothing here writes to the repo
+permissions:
+  contents: read
+
+# A new push to the same branch or pull request cancels the run it makes outdated
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Actions are pinned to commit SHAs (the tag is in the comment); Dependabot keeps them current.
 jobs:
   lint:
     name: ruff + mypy + pip-audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.10"  # the oldest supported version, so newer syntax gets caught
           cache: pip
@@ -35,10 +48,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python: ["3.10", "3.12", "3.13"]
+        python: ["3.10", "3.12", "3.14"]  # oldest supported, the common one, newest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -53,14 +66,31 @@ jobs:
       - name: Run tests
         run: pytest -m "unit or integration" --cov=yt_audio --cov-report=term-missing --cov-fail-under=90
 
+  package:
+    name: wheel builds and installs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip wheel . --no-deps -w dist
+      - name: Install the wheel the way pipx would, and run it
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+          cd /tmp && /tmp/venv/bin/yt-audio --version
+
   e2e:
     name: e2e (real YouTube)
-    if: github.event_name == 'workflow_dispatch' && inputs.e2e
+    # Weekly canary, or on request. YouTube often blocks CI servers, so the scheduled run never fails the workflow.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.e2e)
     needs: test
     runs-on: windows-latest
+    continue-on-error: ${{ github.event_name == 'schedule' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
       - run: choco install ffmpeg -y --no-progress
